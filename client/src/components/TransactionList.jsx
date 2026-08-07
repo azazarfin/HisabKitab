@@ -104,7 +104,7 @@ const TransactionList = ({ transactions, categories, paymentMethods, onEdit, onD
                 Date{sortIndicator('date')}
               </th>
               <th>Category</th>
-              <th>Description</th>
+              <th>Title</th>
               <th>Payment</th>
               <th
                 className={sortBy === 'amount' ? 'sorted' : ''}

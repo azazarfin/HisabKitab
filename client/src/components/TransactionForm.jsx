@@ -70,9 +70,9 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
       description: formData.description,
     };
 
-    if (transactionType === 'expense') {
-      if (formData.categoryId) data.categoryId = formData.categoryId;
-      if (formData.paymentMethodId) data.paymentMethodId = formData.paymentMethodId;
+    if (formData.paymentMethodId) data.paymentMethodId = formData.paymentMethodId;
+    if (transactionType === 'expense' && formData.categoryId) {
+      data.categoryId = formData.categoryId;
     }
 
     onSubmit(data);
@@ -109,25 +109,6 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label" htmlFor="txn-amount">
-              Amount (৳)
-            </label>
-            <input
-              id="txn-amount"
-              className="form-input form-input--amount"
-              type="number"
-              name="amount"
-              value={formData.amount}
-              onChange={handleChange}
-              placeholder="0"
-              min="0"
-              step="1"
-              required
-              autoFocus
-            />
-          </div>
-
           {transactionType === 'expense' && (
             <>
               <div className="form-row">
@@ -191,6 +172,59 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
           )}
 
           <div className="form-group">
+            <label className="form-label" htmlFor="txn-description">Title</label>
+            <input
+              id="txn-description"
+              className="form-input"
+              type="text"
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
+              placeholder={transactionType === 'balance' ? 'e.g., Salary, Freelance payment' : 'e.g., Weekly groceries'}
+              maxLength={200}
+              autoFocus
+            />
+          </div>
+
+          {transactionType === 'balance' && (
+            <div className="form-group">
+              <label className="form-label" htmlFor="txn-payment">Deposited Via</label>
+              <select
+                id="txn-payment"
+                className="form-select"
+                name="paymentMethodId"
+                value={formData.paymentMethodId}
+                onChange={handleChange}
+              >
+                <option value="">Select method...</option>
+                {paymentMethods.map((pm) => (
+                  <option key={pm._id} value={pm._id}>
+                    {pm.emoji} {pm.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="form-group">
+            <label className="form-label" htmlFor="txn-amount">
+              Amount (৳)
+            </label>
+            <input
+              id="txn-amount"
+              className="form-input form-input--amount"
+              type="number"
+              name="amount"
+              value={formData.amount}
+              onChange={handleChange}
+              placeholder="0"
+              min="0"
+              step="1"
+              required
+            />
+          </div>
+
+          <div className="form-group">
             <label className="form-label" htmlFor="txn-date">Date</label>
             <input
               id="txn-date"
@@ -203,25 +237,14 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
             />
           </div>
 
-          <div className="form-group">
-            <label className="form-label" htmlFor="txn-description">Description</label>
-            <input
-              id="txn-description"
-              className="form-input"
-              type="text"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              placeholder={transactionType === 'balance' ? 'e.g., Salary, Freelance payment' : 'e.g., Weekly groceries'}
-              maxLength={200}
-            />
-          </div>
-
           <div className="form-actions">
             <button type="button" className="btn btn--secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="btn btn--primary">
+            <button
+              type="submit"
+              className={`btn ${transactionType === 'balance' ? 'btn--primary' : 'btn--danger-fill'}`}
+            >
               {isEditing ? 'Update' : transactionType === 'balance' ? 'Add Balance' : 'Add Expense'}
             </button>
           </div>

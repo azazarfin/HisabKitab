@@ -345,17 +345,8 @@ function App() {
             transactions={transactions}
             categories={categories}
             activeChapter={activeChapter}
+            onAddTransaction={() => setShowTransactionForm(true)}
           />
-
-          <div className="expense-section__header" style={{ marginBottom: '0' }}>
-            <div />
-            <button
-              className="btn btn--primary"
-              onClick={() => setShowTransactionForm(true)}
-            >
-              ➕ Add Transaction
-            </button>
-          </div>
 
           <TransactionList
             transactions={transactions}
@@ -405,6 +396,7 @@ function App() {
       {/* Settings Panel */}
       {showSettings && (
         <SettingsPanel
+          onManageChapters={() => setShowChapterManager(true)}
           onManageCategories={() => setShowCategoryManager(true)}
           onManagePaymentMethods={() => setShowPaymentMethodManager(true)}
           onManageRecurring={() => setShowRecurringManager(true)}

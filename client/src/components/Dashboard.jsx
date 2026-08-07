@@ -1,7 +1,7 @@
 import { formatCurrency } from '../utils/helpers';
 import Charts from './Charts';
 
-const Dashboard = ({ transactions, categories, activeChapter }) => {
+const Dashboard = ({ transactions, categories, activeChapter, onAddTransaction }) => {
   const balanceTransactions = transactions.filter((t) => t.type === 'balance');
   const expenseTransactions = transactions.filter((t) => t.type === 'expense');
 
@@ -54,13 +54,11 @@ const Dashboard = ({ transactions, categories, activeChapter }) => {
         <div className="glass-card summary-card summary-card--balance animate-fade-in">
           <p className="summary-card__label">Total Balance</p>
           <p className="summary-card__value">{formatCurrency(totalBalance)}</p>
-          <span className="summary-card__icon">💰</span>
         </div>
 
         <div className="glass-card summary-card summary-card--spent animate-fade-in">
           <p className="summary-card__label">Total Spent</p>
           <p className="summary-card__value">{formatCurrency(totalSpent)}</p>
-          <span className="summary-card__icon">💸</span>
         </div>
 
         <div className="glass-card summary-card summary-card--remaining animate-fade-in">
@@ -68,13 +66,6 @@ const Dashboard = ({ transactions, categories, activeChapter }) => {
           <p className={`summary-card__value ${remaining < 0 ? 'summary-card__value--danger' : ''}`}>
             {totalBalance > 0 ? formatCurrency(remaining) : '—'}
           </p>
-          <span className="summary-card__icon">🎯</span>
-        </div>
-
-        <div className="glass-card summary-card summary-card--count animate-fade-in">
-          <p className="summary-card__label">Transactions</p>
-          <p className="summary-card__value">{transactions.length}</p>
-          <span className="summary-card__icon">📋</span>
         </div>
       </div>
 
@@ -98,6 +89,18 @@ const Dashboard = ({ transactions, categories, activeChapter }) => {
               style={{ width: `${Math.min(percentage, 100)}%` }}
             />
           </div>
+        </div>
+      )}
+
+      {/* Add Transaction Action Banner */}
+      {onAddTransaction && (
+        <div className="add-transaction-banner animate-fade-in">
+          <button
+            className="btn btn--primary btn--add-transaction-lg"
+            onClick={onAddTransaction}
+          >
+            Add Transaction
+          </button>
         </div>
       )}
 

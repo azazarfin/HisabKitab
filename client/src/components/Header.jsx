@@ -1,4 +1,4 @@
-const Header = ({ activeChapter, chapters, onSelectChapter, onManageChapters, onOpenSettings }) => {
+const Header = ({ activeChapter, chapters, onSelectChapter, onOpenSettings }) => {
   return (
     <header className="header">
       <div className="header__brand">
@@ -27,13 +27,6 @@ const Header = ({ activeChapter, chapters, onSelectChapter, onManageChapters, on
               ))
             )}
           </select>
-          <button
-            className="btn btn--ghost btn--icon"
-            onClick={onManageChapters}
-            title="Manage Chapters"
-          >
-            ⚙️
-          </button>
         </div>
 
         {/* Settings Menu */}

@@ -1,4 +1,4 @@
-const SettingsPanel = ({ onManageCategories, onManagePaymentMethods, onManageRecurring, onClose }) => {
+const SettingsPanel = ({ onManageChapters, onManageCategories, onManagePaymentMethods, onManageRecurring, onClose }) => {
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
@@ -8,6 +8,14 @@ const SettingsPanel = ({ onManageCategories, onManagePaymentMethods, onManageRec
         </div>
 
         <div className="settings-grid">
+          <button className="settings-item" onClick={() => { onClose(); onManageChapters(); }}>
+            <span className="settings-item__icon">📖</span>
+            <div className="settings-item__info">
+              <span className="settings-item__title">Chapter Manager</span>
+              <span className="settings-item__desc">Create, edit, delete, or import chapters</span>
+            </div>
+            <span className="settings-item__arrow">→</span>
+          </button>
           <button className="settings-item" onClick={() => { onClose(); onManageCategories(); }}>
             <span className="settings-item__icon">🏷️</span>
             <div className="settings-item__info">
