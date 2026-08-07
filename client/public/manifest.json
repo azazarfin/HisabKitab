@@ -1,0 +1,21 @@
+{
+  "short_name": "HisabKitab",
+  "name": "HisabKitab — Monthly Expense Tracker",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#060b14",
+  "theme_color": "#0d9668",
+  "display": "standalone",
+  "orientation": "portrait"
+}
