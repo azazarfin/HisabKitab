@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Routes, Route, useNavigate } from 'react-router-dom';
 import './App.css';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import TransactionList from './components/TransactionList';
+import TransactionHistoryPage from './components/TransactionHistoryPage';
 import TransactionForm from './components/TransactionForm';
 import ChapterManager from './components/ChapterManager';
 import CategoryManager from './components/CategoryManager';
@@ -34,6 +36,7 @@ import {
 } from './api/api';
 
 function App() {
+  const navigate = useNavigate();
   // Core state
   const [chapters, setChapters] = useState([]);
   const [activeChapter, setActiveChapter] = useState(null);
@@ -43,14 +46,30 @@ function App() {
   const [recurringExpenses, setRecurringExpenses] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Theme state
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('hisabkitab_theme') || 'charcoal';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('hisabkitab_theme', theme);
+  }, [theme]);
+
   // Modal states
   const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [transactionFormType, setTransactionFormType] = useState('expense');
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [showChapterManager, setShowChapterManager] = useState(false);
   const [showCategoryManager, setShowCategoryManager] = useState(false);
   const [showPaymentMethodManager, setShowPaymentMethodManager] = useState(false);
   const [showRecurringManager, setShowRecurringManager] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  const handleOpenAddTransaction = (type = 'expense') => {
+    setTransactionFormType(type);
+    setShowTransactionForm(true);
+  };
 
   // Toast state
   const [toasts, setToasts] = useState([]);
@@ -340,30 +359,50 @@ function App() {
           </button>
         </div>
       ) : (
-        <>
-          <Dashboard
-            transactions={transactions}
-            categories={categories}
-            activeChapter={activeChapter}
-            onAddTransaction={() => setShowTransactionForm(true)}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <Dashboard
+                transactions={transactions}
+                categories={categories}
+                paymentMethods={paymentMethods}
+                activeChapter={activeChapter}
+                onAddBalance={() => handleOpenAddTransaction('balance')}
+                onAddExpense={() => handleOpenAddTransaction('expense')}
+                onAddTransaction={(type) => handleOpenAddTransaction(type)}
+                onViewAllTransactions={() => navigate('/history')}
+                onEditTransaction={(txn) => setEditingTransaction(txn)}
+                onDeleteTransaction={handleDeleteTransaction}
+              />
+            }
           />
-
-          <TransactionList
-            transactions={transactions}
-            categories={categories}
-            paymentMethods={paymentMethods}
-            onEdit={(txn) => setEditingTransaction(txn)}
-            onDelete={handleDeleteTransaction}
+          <Route
+            path="/history"
+            element={
+              <TransactionHistoryPage
+                transactions={transactions}
+                categories={categories}
+                paymentMethods={paymentMethods}
+                activeChapter={activeChapter}
+                onEdit={(txn) => setEditingTransaction(txn)}
+                onDelete={handleDeleteTransaction}
+                onAddTransaction={(type) => handleOpenAddTransaction(type)}
+                onBackToDashboard={() => navigate('/')}
+              />
+            }
           />
-        </>
+        </Routes>
       )}
 
       {/* Add Transaction Modal */}
       {showTransactionForm && activeChapter && (
         <TransactionForm
+          key={`add-txn-${transactionFormType}`}
           categories={categories}
           paymentMethods={paymentMethods}
           chapterId={activeChapter._id}
+          defaultType={transactionFormType}
           onSubmit={handleAddTransaction}
           onClose={() => setShowTransactionForm(false)}
         />
@@ -396,6 +435,8 @@ function App() {
       {/* Settings Panel */}
       {showSettings && (
         <SettingsPanel
+          currentTheme={theme}
+          onSelectTheme={setTheme}
           onManageChapters={() => setShowChapterManager(true)}
           onManageCategories={() => setShowCategoryManager(true)}
           onManagePaymentMethods={() => setShowPaymentMethodManager(true)}

@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react';
 import { formatCurrency } from '../utils/helpers';
 import { fetchRecurring } from '../api/api';
 
-const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onClose, initialData }) => {
+const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onClose, initialData, defaultType = 'expense' }) => {
   const isEditing = !!initialData;
 
   const [transactionType, setTransactionType] = useState(
-    initialData?.type || 'expense'
+    initialData?.type || defaultType || 'expense'
   );
 
   const [formData, setFormData] = useState({
@@ -31,8 +31,10 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
         paymentMethodId: initialData.paymentMethodId?._id || initialData.paymentMethodId || '',
       });
       setTransactionType(initialData.type || 'expense');
+    } else {
+      setTransactionType(defaultType || 'expense');
     }
-  }, [initialData]);
+  }, [initialData, defaultType]);
 
   // Load recurring suggestions when category changes
   useEffect(() => {
@@ -80,33 +82,19 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
 
   return (
     <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={(e) => e.stopPropagation()}>
+      <div className={`modal modal--${transactionType}`} onClick={(e) => e.stopPropagation()}>
         <div className="modal__header">
           <h2 className="modal__title">
-            {isEditing ? '✏️ Edit Transaction' : '➕ Add Transaction'}
+            {isEditing
+              ? 'Edit Transaction'
+              : transactionType === 'balance'
+              ? 'Add Balance'
+              : 'Add Expense'}
           </h2>
           <button className="modal__close" onClick={onClose}>✕</button>
         </div>
 
-        {/* Transaction Type Toggle */}
-        {!isEditing && (
-          <div className="type-toggle">
-            <button
-              className={`type-toggle__btn ${transactionType === 'balance' ? 'type-toggle__btn--active type-toggle__btn--balance' : ''}`}
-              onClick={() => setTransactionType('balance')}
-              type="button"
-            >
-              💰 Add Balance
-            </button>
-            <button
-              className={`type-toggle__btn ${transactionType === 'expense' ? 'type-toggle__btn--active type-toggle__btn--expense' : ''}`}
-              onClick={() => setTransactionType('expense')}
-              type="button"
-            >
-              💸 Add Expense
-            </button>
-          </div>
-        )}
+
 
         <form onSubmit={handleSubmit}>
           {transactionType === 'expense' && (

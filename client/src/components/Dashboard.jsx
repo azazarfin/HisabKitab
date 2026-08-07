@@ -1,7 +1,19 @@
 import { formatCurrency } from '../utils/helpers';
 import Charts from './Charts';
+import TransactionList from './TransactionList';
 
-const Dashboard = ({ transactions, categories, activeChapter, onAddTransaction }) => {
+const Dashboard = ({
+  transactions = [],
+  categories = [],
+  paymentMethods = [],
+  activeChapter,
+  onAddTransaction,
+  onAddBalance,
+  onAddExpense,
+  onViewAllTransactions,
+  onEditTransaction,
+  onDeleteTransaction,
+}) => {
   const balanceTransactions = transactions.filter((t) => t.type === 'balance');
   const expenseTransactions = transactions.filter((t) => t.type === 'expense');
 
@@ -92,14 +104,20 @@ const Dashboard = ({ transactions, categories, activeChapter, onAddTransaction }
         </div>
       )}
 
-      {/* Add Transaction Action Banner */}
-      {onAddTransaction && (
+      {/* Add Balance & Add Expense Action Banner */}
+      {(onAddBalance || onAddExpense || onAddTransaction) && (
         <div className="add-transaction-banner animate-fade-in">
           <button
-            className="btn btn--primary btn--add-transaction-lg"
-            onClick={onAddTransaction}
+            className="btn btn--add-action-lg btn--add-balance-lg"
+            onClick={() => (onAddBalance ? onAddBalance() : onAddTransaction?.('balance'))}
           >
-            Add Transaction
+            Add Balance
+          </button>
+          <button
+            className="btn btn--add-action-lg btn--add-expense-lg"
+            onClick={() => (onAddExpense ? onAddExpense() : onAddTransaction?.('expense'))}
+          >
+            Add Expense
           </button>
         </div>
       )}
@@ -135,6 +153,17 @@ const Dashboard = ({ transactions, categories, activeChapter, onAddTransaction }
           ))}
         </div>
       )}
+
+      {/* Simplified Recent Transactions Preview Section with Referral to Detailed Page */}
+      <TransactionList
+        transactions={transactions}
+        categories={categories}
+        paymentMethods={paymentMethods}
+        onEdit={onEditTransaction}
+        onDelete={onDeleteTransaction}
+        onViewAll={onViewAllTransactions}
+        maxDisplay={5}
+      />
     </div>
   );
 };

@@ -1,13 +1,20 @@
-const Header = ({ activeChapter, chapters, onSelectChapter, onOpenSettings }) => {
+import { Link } from 'react-router-dom';
+
+const Header = ({
+  activeChapter,
+  chapters,
+  onSelectChapter,
+  onOpenSettings,
+}) => {
   return (
     <header className="header">
-      <div className="header__brand">
+      <Link to="/" className="header__brand" title="Go to Dashboard">
         <span className="header__logo">📊</span>
         <div>
           <h1 className="header__title">HisabKitab</h1>
           <p className="header__subtitle">Track your spending smartly</p>
         </div>
-      </div>
+      </Link>
 
       <div className="header__nav">
         {/* Chapter Selector */}
@@ -16,6 +23,7 @@ const Header = ({ activeChapter, chapters, onSelectChapter, onOpenSettings }) =>
             className="chapter-selector__select"
             value={activeChapter?._id || ''}
             onChange={(e) => onSelectChapter(e.target.value)}
+            aria-label="Select Chapter"
           >
             {chapters.length === 0 ? (
               <option value="">No chapters</option>
@@ -30,7 +38,7 @@ const Header = ({ activeChapter, chapters, onSelectChapter, onOpenSettings }) =>
         </div>
 
         {/* Settings Menu */}
-        <button className="btn btn--secondary" onClick={onOpenSettings}>
+        <button type="button" className="btn btn--secondary" onClick={onOpenSettings}>
           🛠️ Settings
         </button>
       </div>
