@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const PaymentMethod = require('../models/PaymentMethod');
 
-// GET /api/payment-methods — list all
+// GET /api/payment-methods — list all for the authenticated user
 router.get('/', async (req, res) => {
   try {
-    const methods = await PaymentMethod.find().sort({ name: 1 });
+    const methods = await PaymentMethod.find({ userId: req.user.id }).sort({ name: 1 });
     res.json(methods);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -16,7 +16,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, emoji } = req.body;
-    const method = new PaymentMethod({ name, emoji });
+    const method = new PaymentMethod({ userId: req.user.id, name, emoji });
     const saved = await method.save();
     res.status(201).json(saved);
   } catch (error) {
@@ -30,10 +30,11 @@ router.post('/', async (req, res) => {
 // PUT /api/payment-methods/:id — update
 router.put('/:id', async (req, res) => {
   try {
-    const method = await PaymentMethod.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const method = await PaymentMethod.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      req.body,
+      { new: true, runValidators: true }
+    );
 
     if (!method) {
       return res.status(404).json({ message: 'Payment method not found' });
@@ -51,7 +52,10 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/payment-methods/:id — delete
 router.delete('/:id', async (req, res) => {
   try {
-    const method = await PaymentMethod.findByIdAndDelete(req.params.id);
+    const method = await PaymentMethod.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
 
     if (!method) {
       return res.status(404).json({ message: 'Payment method not found' });

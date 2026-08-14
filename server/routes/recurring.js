@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const RecurringExpense = require('../models/RecurringExpense');
 
-// GET /api/recurring — list all, optionally filter by categoryId
+// GET /api/recurring — list all, optionally filter by categoryId (user-scoped)
 router.get('/', async (req, res) => {
   try {
-    const filter = {};
+    const filter = { userId: req.user.id };
     if (req.query.categoryId) {
       filter.categoryId = req.query.categoryId;
     }
@@ -24,7 +24,7 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, amount, categoryId, description } = req.body;
-    const item = new RecurringExpense({ name, amount, categoryId, description });
+    const item = new RecurringExpense({ userId: req.user.id, name, amount, categoryId, description });
     const saved = await item.save();
     const populated = await saved.populate('categoryId');
     res.status(201).json(populated);
@@ -36,10 +36,11 @@ router.post('/', async (req, res) => {
 // PUT /api/recurring/:id — update
 router.put('/:id', async (req, res) => {
   try {
-    const item = await RecurringExpense.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).populate('categoryId');
+    const item = await RecurringExpense.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      req.body,
+      { new: true, runValidators: true }
+    ).populate('categoryId');
 
     if (!item) {
       return res.status(404).json({ message: 'Recurring expense not found' });
@@ -54,7 +55,10 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/recurring/:id — delete
 router.delete('/:id', async (req, res) => {
   try {
-    const item = await RecurringExpense.findByIdAndDelete(req.params.id);
+    const item = await RecurringExpense.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
 
     if (!item) {
       return res.status(404).json({ message: 'Recurring expense not found' });

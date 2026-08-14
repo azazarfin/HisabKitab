@@ -2,6 +2,12 @@ const mongoose = require('mongoose');
 
 const recurringExpenseSchema = new mongoose.Schema(
   {
+    userId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      required: [true, 'User is required'],
+      index: true,
+    },
     name: {
       type: String,
       required: [true, 'Recurring expense name is required'],

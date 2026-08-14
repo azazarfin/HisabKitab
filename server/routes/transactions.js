@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 
-// GET /api/transactions?chapterId=xxx — list transactions for a chapter
+// GET /api/transactions?chapterId=xxx — list transactions for a chapter (user-scoped)
 router.get('/', async (req, res) => {
   try {
     const { chapterId } = req.query;
@@ -11,7 +11,7 @@ router.get('/', async (req, res) => {
       return res.status(400).json({ message: 'chapterId query param is required' });
     }
 
-    const transactions = await Transaction.find({ chapterId })
+    const transactions = await Transaction.find({ chapterId, userId: req.user.id })
       .populate('categoryId')
       .populate('paymentMethodId')
       .sort({ date: -1 });
@@ -25,7 +25,7 @@ router.get('/', async (req, res) => {
 // POST /api/transactions — create a transaction
 router.post('/', async (req, res) => {
   try {
-    const transaction = new Transaction(req.body);
+    const transaction = new Transaction({ ...req.body, userId: req.user.id });
     const saved = await transaction.save();
     const populated = await saved.populate(['categoryId', 'paymentMethodId']);
     res.status(201).json(populated);
@@ -37,10 +37,11 @@ router.post('/', async (req, res) => {
 // PUT /api/transactions/:id — update a transaction
 router.put('/:id', async (req, res) => {
   try {
-    const transaction = await Transaction.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    }).populate(['categoryId', 'paymentMethodId']);
+    const transaction = await Transaction.findOneAndUpdate(
+      { _id: req.params.id, userId: req.user.id },
+      req.body,
+      { new: true, runValidators: true }
+    ).populate(['categoryId', 'paymentMethodId']);
 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });
@@ -55,7 +56,10 @@ router.put('/:id', async (req, res) => {
 // DELETE /api/transactions/:id — delete a transaction
 router.delete('/:id', async (req, res) => {
   try {
-    const transaction = await Transaction.findByIdAndDelete(req.params.id);
+    const transaction = await Transaction.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.user.id,
+    });
 
     if (!transaction) {
       return res.status(404).json({ message: 'Transaction not found' });

@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import './App.css';
+import { useAuth } from './context/AuthContext';
+import { setTokenGetter } from './api/api';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import TransactionList from './components/TransactionList';
@@ -11,6 +13,12 @@ import CategoryManager from './components/CategoryManager';
 import PaymentMethodManager from './components/PaymentMethodManager';
 import RecurringManager from './components/RecurringManager';
 import SettingsPanel from './components/SettingsPanel';
+import LoginPage from './components/auth/LoginPage';
+import RegisterPage from './components/auth/RegisterPage';
+import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
+import ResetPasswordPage from './components/auth/ResetPasswordPage';
+import VerifyEmailPage from './components/auth/VerifyEmailPage';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import {
   fetchChapters,
   createChapter,
@@ -37,6 +45,13 @@ import {
 
 function App() {
   const navigate = useNavigate();
+  const { isAuthenticated, loading: authLoading, getAccessToken } = useAuth();
+
+  // Connect the API layer to the auth token getter
+  useEffect(() => {
+    setTokenGetter(getAccessToken);
+  }, [getAccessToken]);
+
   // Core state
   const [chapters, setChapters] = useState([]);
   const [activeChapter, setActiveChapter] = useState(null);
@@ -84,6 +99,7 @@ function App() {
 
   // ─── Initial Data Load ──────────────────────────────────────
   const loadInitialData = useCallback(async () => {
+    if (!isAuthenticated) return;
     setLoading(true);
     try {
       const [chaptersData, categoriesData, paymentMethodsData, recurringData] = await Promise.all([
@@ -110,11 +126,22 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   useEffect(() => {
-    loadInitialData();
-  }, [loadInitialData]);
+    if (isAuthenticated) {
+      loadInitialData();
+    } else {
+      // Reset state on logout
+      setChapters([]);
+      setActiveChapter(null);
+      setTransactions([]);
+      setCategories([]);
+      setPaymentMethods([]);
+      setRecurringExpenses([]);
+      setLoading(false);
+    }
+  }, [isAuthenticated, loadInitialData]);
 
   // ─── Load Transactions for Active Chapter ───────────────────
   const loadTransactions = useCallback(async () => {
@@ -332,68 +359,115 @@ function App() {
   };
 
   // ─── Render ─────────────────────────────────────────────────
-  return (
-    <div className="app-container">
-      <Header
-        activeChapter={activeChapter}
-        chapters={chapters}
-        onSelectChapter={handleSelectChapter}
-        onManageChapters={() => setShowChapterManager(true)}
-        onOpenSettings={() => setShowSettings(true)}
-      />
 
-      {loading ? (
-        <div className="empty-state">
-          <span className="empty-state__icon">⏳</span>
-          <p className="empty-state__text">Loading data...</p>
+  // Show nothing while auth is loading
+  if (authLoading) {
+    return (
+      <div className="auth-page">
+        <div className="auth-page__bg-orb auth-page__bg-orb--1" />
+        <div className="auth-page__bg-orb auth-page__bg-orb--2" />
+        <div className="auth-card" style={{ textAlign: 'center' }}>
+          <span className="auth-card__logo">📒</span>
+          <h1 className="auth-card__title" style={{ marginTop: '8px' }}>HisabKitab</h1>
+          <span className="auth-spinner auth-spinner--large" style={{ marginTop: '24px' }} />
         </div>
-      ) : !activeChapter ? (
-        <div className="empty-state">
-          <span className="empty-state__icon">📖</span>
-          <p className="empty-state__text">No chapters yet. Create your first tracking chapter to get started!</p>
-          <button
-            className="btn btn--primary"
-            onClick={() => setShowChapterManager(true)}
-          >
-            ➕ Create First Chapter
-          </button>
-        </div>
-      ) : (
-        <Routes>
-          <Route
-            path="/"
-            element={
-              <Dashboard
-                transactions={transactions}
-                categories={categories}
-                paymentMethods={paymentMethods}
-                activeChapter={activeChapter}
-                onAddBalance={() => handleOpenAddTransaction('balance')}
-                onAddExpense={() => handleOpenAddTransaction('expense')}
-                onAddTransaction={(type) => handleOpenAddTransaction(type)}
-                onViewAllTransactions={() => navigate('/history')}
-                onEditTransaction={(txn) => setEditingTransaction(txn)}
-                onDeleteTransaction={handleDeleteTransaction}
-              />
-            }
-          />
-          <Route
-            path="/history"
-            element={
-              <TransactionHistoryPage
-                transactions={transactions}
-                categories={categories}
-                paymentMethods={paymentMethods}
-                activeChapter={activeChapter}
-                onEdit={(txn) => setEditingTransaction(txn)}
-                onDelete={handleDeleteTransaction}
-                onAddTransaction={(type) => handleOpenAddTransaction(type)}
-                onBackToDashboard={() => navigate('/')}
-              />
-            }
-          />
-        </Routes>
-      )}
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Routes>
+        {/* Public Auth Routes */}
+        <Route
+          path="/login"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />}
+        />
+        <Route
+          path="/register"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />}
+        />
+        <Route
+          path="/forgot-password"
+          element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />}
+        />
+        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+
+        {/* Protected App Routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <div className="app-container">
+                <Header
+                  activeChapter={activeChapter}
+                  chapters={chapters}
+                  onSelectChapter={handleSelectChapter}
+                  onManageChapters={() => setShowChapterManager(true)}
+                  onOpenSettings={() => setShowSettings(true)}
+                />
+                {loading ? (
+                  <div className="empty-state">
+                    <span className="empty-state__icon">⏳</span>
+                    <p className="empty-state__text">Loading data...</p>
+                  </div>
+                ) : !activeChapter ? (
+                  <div className="empty-state">
+                    <span className="empty-state__icon">📖</span>
+                    <p className="empty-state__text">No chapters yet. Create your first tracking chapter to get started!</p>
+                    <button
+                      className="btn btn--primary"
+                      onClick={() => setShowChapterManager(true)}
+                    >
+                      ➕ Create First Chapter
+                    </button>
+                  </div>
+                ) : (
+                  <Dashboard
+                    transactions={transactions}
+                    categories={categories}
+                    paymentMethods={paymentMethods}
+                    activeChapter={activeChapter}
+                    onAddBalance={() => handleOpenAddTransaction('balance')}
+                    onAddExpense={() => handleOpenAddTransaction('expense')}
+                    onAddTransaction={(type) => handleOpenAddTransaction(type)}
+                    onViewAllTransactions={() => navigate('/history')}
+                    onEditTransaction={(txn) => setEditingTransaction(txn)}
+                    onDeleteTransaction={handleDeleteTransaction}
+                  />
+                )}
+              </div>
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/history"
+          element={
+            <ProtectedRoute>
+              <div className="app-container">
+                <Header
+                  activeChapter={activeChapter}
+                  chapters={chapters}
+                  onSelectChapter={handleSelectChapter}
+                  onManageChapters={() => setShowChapterManager(true)}
+                  onOpenSettings={() => setShowSettings(true)}
+                />
+                <TransactionHistoryPage
+                  transactions={transactions}
+                  categories={categories}
+                  paymentMethods={paymentMethods}
+                  activeChapter={activeChapter}
+                  onEdit={(txn) => setEditingTransaction(txn)}
+                  onDelete={handleDeleteTransaction}
+                  onAddTransaction={(type) => handleOpenAddTransaction(type)}
+                  onBackToDashboard={() => navigate('/')}
+                />
+              </div>
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
 
       {/* Add Transaction Modal */}
       {showTransactionForm && activeChapter && (
@@ -487,7 +561,7 @@ function App() {
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 }
 

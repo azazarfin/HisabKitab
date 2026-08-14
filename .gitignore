@@ -58,3 +58,4 @@ Thumbs.db
 .cache/
 *.tmp
 *.bak
+mailserver_setup_context.md
