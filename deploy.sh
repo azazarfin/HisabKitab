@@ -66,7 +66,7 @@ main() {
   local retries=10
   local wait=3
   for i in $(seq 1 $retries); do
-    if curl -sf http://localhost:8090/api/health &>/dev/null || curl -sf http://localhost:5000/api/health &>/dev/null; then
+    if curl -sf http://localhost:8090/api/health &>/dev/null; then
       log "✅ Health check passed!"
       break
     fi
