@@ -45,12 +45,15 @@ main() {
   git reset --hard "origin/${BRANCH}"
   log "✅ Code updated to $(git rev-parse --short HEAD)"
 
-  # 2. Rebuild and restart containers
-  log "🔨 Rebuilding containers..."
-  $COMPOSE_CMD down --remove-orphans 2>&1 | tee -a "$LOG_FILE"
-  $COMPOSE_CMD up --build -d 2>&1 | tee -a "$LOG_FILE"
+  # 2. Build images first (zero downtime rebuild)
+  log "🔨 Building container images..."
+  $COMPOSE_CMD build 2>&1 | tee -a "$LOG_FILE"
 
-  # 3. Cleanup old images
+  # 3. Apply updates with minimal restart time
+  log "🔄 Starting updated containers..."
+  $COMPOSE_CMD up -d --remove-orphans 2>&1 | tee -a "$LOG_FILE"
+
+  # 4. Cleanup old images
   log "🧹 Pruning dangling images..."
   if command -v podman &>/dev/null; then
     podman image prune -f 2>&1 | tee -a "$LOG_FILE" || true
@@ -58,12 +61,12 @@ main() {
     docker image prune -f 2>&1 | tee -a "$LOG_FILE" || true
   fi
 
-  # 4. Health check (wait up to 30s)
+  # 5. Health check (wait up to 30s)
   log "🏥 Waiting for health check..."
   local retries=10
   local wait=3
   for i in $(seq 1 $retries); do
-    if curl -sf http://localhost:5000/api/health &>/dev/null; then
+    if curl -sf http://localhost:8090/api/health &>/dev/null || curl -sf http://localhost:5000/api/health &>/dev/null; then
       log "✅ Health check passed!"
       break
     fi

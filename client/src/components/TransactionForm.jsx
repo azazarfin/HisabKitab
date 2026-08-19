@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { formatCurrency } from '../utils/helpers';
+import { formatCurrency, formatInputDate } from '../utils/helpers';
 import { fetchRecurring } from '../api/api';
 
 const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onClose, initialData, defaultType = 'expense' }) => {
@@ -13,7 +13,7 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
     amount: '',
     categoryId: '',
     description: '',
-    date: new Date().toISOString().split('T')[0],
+    date: formatInputDate(),
     paymentMethodId: '',
   });
 
@@ -25,9 +25,7 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
         amount: initialData.amount?.toString() || '',
         categoryId: initialData.categoryId?._id || initialData.categoryId || '',
         description: initialData.description || '',
-        date: initialData.date
-          ? new Date(initialData.date).toISOString().split('T')[0]
-          : new Date().toISOString().split('T')[0],
+        date: initialData.date ? formatInputDate(initialData.date) : formatInputDate(),
         paymentMethodId: initialData.paymentMethodId?._id || initialData.paymentMethodId || '',
       });
       setTransactionType(initialData.type || 'expense');
@@ -69,13 +67,10 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
       amount: Number(formData.amount),
       chapterId,
       date: formData.date,
-      description: formData.description,
+      description: formData.description || '',
+      paymentMethodId: formData.paymentMethodId || null,
+      categoryId: transactionType === 'expense' ? (formData.categoryId || null) : null,
     };
-
-    if (formData.paymentMethodId) data.paymentMethodId = formData.paymentMethodId;
-    if (transactionType === 'expense' && formData.categoryId) {
-      data.categoryId = formData.categoryId;
-    }
 
     onSubmit(data);
   };
@@ -207,7 +202,7 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
               onChange={handleChange}
               placeholder="0"
               min="0"
-              step="1"
+              step="any"
               required
             />
           </div>

@@ -25,7 +25,7 @@ const paymentMethodSchema = new mongoose.Schema(
   }
 );
 
-// Unique payment method name per user (not globally)
-paymentMethodSchema.index({ userId: 1, name: 1 }, { unique: true });
+// Unique payment method name per user (case-insensitive)
+paymentMethodSchema.index({ userId: 1, name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 module.exports = mongoose.model('PaymentMethod', paymentMethodSchema);

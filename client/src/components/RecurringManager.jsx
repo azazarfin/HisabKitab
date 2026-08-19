@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatCurrency } from '../utils/helpers';
 
-const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, onUpdateRecurring, onDeleteRecurring, onClose }) => {
+const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, onUpdateRecurring, onDeleteRecurring, onClose, showConfirm, addToast }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
@@ -23,7 +23,9 @@ const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, on
 
     const data = {
       ...formData,
+      name: formData.name.trim(),
       amount: Number(formData.amount),
+      description: formData.description ? formData.description.trim() : '',
     };
 
     if (editingId) {
@@ -43,6 +45,18 @@ const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, on
       description: item.description || '',
     });
     setShowForm(true);
+  };
+
+  const handleDeleteClick = (item) => {
+    if (showConfirm) {
+      showConfirm(
+        'Delete Recurring Expense',
+        `Delete recurring expense "${item.name}"?`,
+        () => onDeleteRecurring(item._id)
+      );
+    } else {
+      onDeleteRecurring(item._id);
+    }
   };
 
   const getCategoryName = (item) => {
@@ -71,7 +85,9 @@ const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, on
             className="btn btn--primary btn--full"
             onClick={() => {
               if (categories.length === 0) {
-                alert('Please create at least one category first.');
+                if (addToast) {
+                  addToast('Please create at least one category first.', 'error');
+                }
                 return;
               }
               setShowForm(true);
@@ -106,7 +122,7 @@ const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, on
                   onChange={(e) => setFormData((p) => ({ ...p, amount: e.target.value }))}
                   placeholder="0"
                   min="0"
-                  step="1"
+                  step="any"
                   required
                 />
               </div>
@@ -183,11 +199,7 @@ const RecurringManager = ({ recurringExpenses, categories, onCreateRecurring, on
                   </button>
                   <button
                     className="btn btn--danger btn--icon"
-                    onClick={() => {
-                      if (confirm(`Delete recurring expense "${item.name}"?`)) {
-                        onDeleteRecurring(item._id);
-                      }
-                    }}
+                    onClick={() => handleDeleteClick(item)}
                     title="Delete"
                   >
                     🗑️

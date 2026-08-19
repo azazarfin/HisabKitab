@@ -5,11 +5,16 @@ const jwt = require('jsonwebtoken');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/authMiddleware');
+const { authLimiter, refreshLimiter } = require('../middleware/rateLimiter');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// ─── Helper: Generate Tokens ────────────────────────────────
+// ─── Helpers ────────────────────────────────────────────────
+const hashToken = (token) => {
+  return crypto.createHash('sha256').update(String(token)).digest('hex');
+};
+
 const generateAccessToken = (user) => {
   return jwt.sign(
     { id: user._id, email: user.email },
@@ -20,7 +25,7 @@ const generateAccessToken = (user) => {
 
 const generateRefreshToken = (user) => {
   return jwt.sign(
-    { id: user._id },
+    { id: user._id, tokenVersion: user.tokenVersion || 0 },
     process.env.JWT_REFRESH_SECRET,
     { expiresIn: '7d' }
   );
@@ -37,7 +42,7 @@ const setRefreshCookie = (res, token) => {
 };
 
 // ─── POST /api/auth/register ────────────────────────────────
-router.post('/register', async (req, res) => {
+router.post('/register', authLimiter, async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
@@ -45,36 +50,44 @@ router.post('/register', async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({ message: 'Name, email, and password are required.' });
     }
-    if (password.length < 6) {
+    if (typeof name !== 'string' || name.trim().length === 0 || name.length > 100) {
+      return res.status(400).json({ message: 'Valid name is required (max 100 characters).' });
+    }
+    if (typeof email !== 'string' || !/^\S+@\S+\.\S+$/.test(email)) {
+      return res.status(400).json({ message: 'Valid email address is required.' });
+    }
+    if (typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters.' });
     }
 
     // Check if user exists
-    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
       return res.status(409).json({ message: 'An account with this email already exists.' });
     }
 
-    // Generate verification token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
+    // Generate verification token (store SHA-256 hash in DB, send raw token to user)
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const hashedVerificationToken = hashToken(rawVerificationToken);
     const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
 
     // Create user
     const user = new User({
-      name,
-      email: email.toLowerCase(),
+      name: name.trim(),
+      email: normalizedEmail,
       password,
       provider: 'local',
       isEmailVerified: false,
-      verificationToken,
+      verificationToken: hashedVerificationToken,
       verificationTokenExpiry,
     });
 
     await user.save();
 
-    // Send verification email
+    // Send verification email with raw token
     try {
-      await sendVerificationEmail(user.email, user.name, verificationToken);
+      await sendVerificationEmail(user.email, user.name, rawVerificationToken);
     } catch (emailErr) {
       console.error('Failed to send verification email:', emailErr.message);
       // Don't fail registration if email fails — user can request resend
@@ -90,16 +103,18 @@ router.post('/register', async (req, res) => {
 });
 
 // ─── POST /api/auth/login ───────────────────────────────────
-router.post('/login', async (req, res) => {
+router.post('/login', authLimiter, async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password) {
+    if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
       return res.status(400).json({ message: 'Email and password are required.' });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Find user with password field
-    const user = await User.findOne({ email: email.toLowerCase() }).select('+password');
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
     if (!user) {
       return res.status(401).json({ message: 'Invalid email or password.' });
     }
@@ -147,11 +162,15 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── POST /api/auth/google ──────────────────────────────────
-router.post('/google', async (req, res) => {
+router.post('/google', authLimiter, async (req, res) => {
   try {
     const { credential } = req.body;
 
-    if (!credential) {
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ message: 'Google authentication is not configured on the server.' });
+    }
+
+    if (!credential || typeof credential !== 'string') {
       return res.status(400).json({ message: 'Google credential is required.' });
     }
 
@@ -168,9 +187,11 @@ router.post('/google', async (req, res) => {
       return res.status(401).json({ message: 'Google email is not verified.' });
     }
 
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Find or create user
     let user = await User.findOne({
-      $or: [{ googleId }, { email: email.toLowerCase() }],
+      $or: [{ googleId }, { email: normalizedEmail }],
     });
 
     if (user) {
@@ -185,8 +206,8 @@ router.post('/google', async (req, res) => {
     } else {
       // Create new user
       user = new User({
-        name,
-        email: email.toLowerCase(),
+        name: name || 'Google User',
+        email: normalizedEmail,
         provider: 'google',
         googleId,
         avatar: picture || '',
@@ -219,8 +240,15 @@ router.post('/google', async (req, res) => {
 // ─── GET /api/auth/verify-email/:token ──────────────────────
 router.get('/verify-email/:token', async (req, res) => {
   try {
+    const rawToken = req.params.token;
+    if (!rawToken || typeof rawToken !== 'string') {
+      return res.status(400).json({ message: 'Invalid verification token.' });
+    }
+
+    const hashedToken = hashToken(rawToken);
+
     const user = await User.findOne({
-      verificationToken: req.params.token,
+      verificationToken: hashedToken,
       verificationTokenExpiry: { $gt: new Date() },
     }).select('+verificationToken +verificationTokenExpiry');
 
@@ -243,34 +271,39 @@ router.get('/verify-email/:token', async (req, res) => {
 });
 
 // ─── POST /api/auth/resend-verification ─────────────────────
-router.post('/resend-verification', async (req, res) => {
+router.post('/resend-verification', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ message: 'Email is required.' });
     }
 
-    const user = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
 
     // Always return success to prevent email enumeration
+    const genericSuccess = {
+      message: 'If your email is registered and unverified, a verification link has been sent.',
+    };
+
     if (!user || user.isEmailVerified) {
-      return res.json({ message: 'If your email is registered and unverified, a verification link has been sent.' });
+      return res.json(genericSuccess);
     }
 
-    // Generate new token
-    const verificationToken = crypto.randomBytes(32).toString('hex');
-    user.verificationToken = verificationToken;
+    // Generate new token (hash before saving)
+    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    user.verificationToken = hashToken(rawVerificationToken);
     user.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
     await user.save();
 
     try {
-      await sendVerificationEmail(user.email, user.name, verificationToken);
+      await sendVerificationEmail(user.email, user.name, rawVerificationToken);
     } catch (emailErr) {
       console.error('Failed to resend verification email:', emailErr.message);
     }
 
-    res.json({ message: 'If your email is registered and unverified, a verification link has been sent.' });
+    res.json(genericSuccess);
   } catch (error) {
     console.error('Resend verification error:', error);
     res.status(500).json({ message: 'Server error.' });
@@ -278,30 +311,31 @@ router.post('/resend-verification', async (req, res) => {
 });
 
 // ─── POST /api/auth/forgot-password ─────────────────────────
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', authLimiter, async (req, res) => {
   try {
     const { email } = req.body;
 
-    if (!email) {
+    if (!email || typeof email !== 'string') {
       return res.status(400).json({ message: 'Email is required.' });
     }
 
     // Always return same response to prevent email enumeration
     const successMsg = 'If an account with that email exists, a password reset link has been sent.';
 
-    const user = await User.findOne({ email: email.toLowerCase() });
-    if (!user || user.provider === 'google') {
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail }).select('+password');
+    if (!user || (!user.password && user.provider === 'google')) {
       return res.json({ message: successMsg });
     }
 
-    // Generate reset token
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    user.resetPasswordToken = resetToken;
+    // Generate reset token (store SHA-256 hash in DB, send raw token)
+    const rawResetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = hashToken(rawResetToken);
     user.resetPasswordTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     await user.save();
 
     try {
-      await sendPasswordResetEmail(user.email, user.name, resetToken);
+      await sendPasswordResetEmail(user.email, user.name, rawResetToken);
     } catch (emailErr) {
       console.error('Failed to send password reset email:', emailErr.message);
     }
@@ -314,16 +348,23 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // ─── POST /api/auth/reset-password/:token ───────────────────
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', authLimiter, async (req, res) => {
   try {
     const { password } = req.body;
+    const rawToken = req.params.token;
 
-    if (!password || password.length < 6) {
+    if (!rawToken || typeof rawToken !== 'string') {
+      return res.status(400).json({ message: 'Invalid reset token.' });
+    }
+
+    if (!password || typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters.' });
     }
 
+    const hashedToken = hashToken(rawToken);
+
     const user = await User.findOne({
-      resetPasswordToken: req.params.token,
+      resetPasswordToken: hashedToken,
       resetPasswordTokenExpiry: { $gt: new Date() },
     }).select('+resetPasswordToken +resetPasswordTokenExpiry');
 
@@ -334,6 +375,7 @@ router.post('/reset-password/:token', async (req, res) => {
     }
 
     user.password = password;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
     user.resetPasswordToken = undefined;
     user.resetPasswordTokenExpiry = undefined;
     await user.save();
@@ -346,7 +388,7 @@ router.post('/reset-password/:token', async (req, res) => {
 });
 
 // ─── POST /api/auth/refresh ─────────────────────────────────
-router.post('/refresh', async (req, res) => {
+router.post('/refresh', refreshLimiter, async (req, res) => {
   try {
     const token = req.cookies?.refreshToken;
 
@@ -357,8 +399,9 @@ router.post('/refresh', async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
     const user = await User.findById(decoded.id);
 
-    if (!user) {
-      return res.status(401).json({ message: 'User not found.' });
+    if (!user || user.tokenVersion !== (decoded.tokenVersion || 0)) {
+      res.clearCookie('refreshToken', { path: '/' });
+      return res.status(401).json({ message: 'Invalid or revoked refresh token.' });
     }
 
     // Issue new tokens (token rotation)

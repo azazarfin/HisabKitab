@@ -22,15 +22,20 @@ const Charts = ({ transactions, categories, activeChapter }) => {
     categoryMap[cat._id] = cat;
   });
 
+  // Filter expense transactions only
+  const expenseTransactions = transactions.filter((t) => t.type === 'expense');
+
   // Spending by category — Donut chart
   const categoryTotals = Object.values(
-    transactions.reduce((acc, t) => {
-      const catId = t.categoryId?._id || t.categoryId;
-      if (!catId) return acc;
+    expenseTransactions.reduce((acc, t) => {
+      const catId = t.categoryId?._id || t.categoryId || 'uncategorized';
       if (!acc[catId]) {
-        const cat = typeof t.categoryId === 'object' ? t.categoryId : categoryMap[catId];
-        if (!cat) return acc;
-        acc[catId] = { ...cat, total: 0 };
+        if (catId === 'uncategorized') {
+          acc[catId] = { _id: 'uncategorized', name: 'Uncategorized', emoji: '📦', color: '#64748b', total: 0 };
+        } else {
+          const cat = typeof t.categoryId === 'object' ? t.categoryId : categoryMap[catId];
+          acc[catId] = cat ? { ...cat, total: 0 } : { _id: catId, name: 'Uncategorized', emoji: '📦', color: '#64748b', total: 0 };
+        }
       }
       acc[catId].total += t.amount;
       return acc;
@@ -82,30 +87,33 @@ const Charts = ({ transactions, categories, activeChapter }) => {
     },
   };
 
-  // Daily spending — Bar chart (group by day of month)
+  // Daily spending — Bar chart (group by local calendar day)
   const dailyTotals = {};
-  transactions.forEach((t) => {
-    const dateKey = new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
-    dailyTotals[dateKey] = (dailyTotals[dateKey] || 0) + t.amount;
+  expenseTransactions.forEach((t) => {
+    const d = new Date(t.date);
+    if (isNaN(d.getTime())) return;
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const isoDayKey = `${year}-${month}-${day}`;
+    dailyTotals[isoDayKey] = (dailyTotals[isoDayKey] || 0) + t.amount;
   });
 
   const sortedDays = Object.entries(dailyTotals)
-    .sort((a, b) => {
-      const dateA = new Date(transactions.find((t) =>
-        new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) === a[0]
-      )?.date);
-      const dateB = new Date(transactions.find((t) =>
-        new Date(t.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) === b[0]
-      )?.date);
-      return dateA - dateB;
+    .sort(([dateKeyA], [dateKeyB]) => dateKeyA.localeCompare(dateKeyB))
+    .map(([isoDayKey, total]) => {
+      const [y, m, d] = isoDayKey.split('-').map(Number);
+      const dateObj = new Date(y, m - 1, d);
+      const label = dateObj.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      return { label, total };
     });
 
   const barData = {
-    labels: sortedDays.map(([day]) => day),
+    labels: sortedDays.map((d) => d.label),
     datasets: [
       {
         label: 'Daily Spending (৳)',
-        data: sortedDays.map(([, total]) => total),
+        data: sortedDays.map((d) => d.total),
         backgroundColor: 'rgba(16, 185, 129, 0.6)',
         borderColor: 'rgba(16, 185, 129, 0.9)',
         borderWidth: 1,

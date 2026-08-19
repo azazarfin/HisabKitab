@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { defaultPaymentMethodSuggestions } from '../data/categories';
 
-const PaymentMethodManager = ({ paymentMethods, onCreateMethod, onUpdateMethod, onDeleteMethod, onClose }) => {
+const PaymentMethodManager = ({ paymentMethods, onCreateMethod, onUpdateMethod, onDeleteMethod, onClose, showConfirm }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: '', emoji: '💳' });
@@ -37,6 +37,18 @@ const PaymentMethodManager = ({ paymentMethods, onCreateMethod, onUpdateMethod, 
 
   const handleSuggestionClick = (suggestion) => {
     onCreateMethod({ name: suggestion.name, emoji: suggestion.emoji });
+  };
+
+  const handleDeleteClick = (method) => {
+    if (showConfirm) {
+      showConfirm(
+        'Delete Payment Method',
+        `Delete payment method "${method.name}"? Transactions using it will have no payment method set.`,
+        () => onDeleteMethod(method._id)
+      );
+    } else {
+      onDeleteMethod(method._id);
+    }
   };
 
   const emojiOptions = ['💳', '💵', '🏦', '📱', '💰', '🪙', '💸', '🏧'];
@@ -143,11 +155,7 @@ const PaymentMethodManager = ({ paymentMethods, onCreateMethod, onUpdateMethod, 
                   </button>
                   <button
                     className="btn btn--danger btn--icon"
-                    onClick={() => {
-                      if (confirm(`Delete "${method.name}"?`)) {
-                        onDeleteMethod(method._id);
-                      }
-                    }}
+                    onClick={() => handleDeleteClick(method)}
                     title="Delete"
                   >
                     🗑️

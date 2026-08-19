@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { formatDateShort } from '../utils/helpers';
+import { formatDateShort, formatInputDate } from '../utils/helpers';
 
 const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteChapter, onImport, onClose, showConfirm }) => {
   const [showForm, setShowForm] = useState(false);
@@ -44,8 +44,8 @@ const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteCh
     setFormData({
       name: chapter.name,
       description: chapter.description || '',
-      startDate: chapter.startDate ? new Date(chapter.startDate).toISOString().split('T')[0] : '',
-      endDate: chapter.endDate ? new Date(chapter.endDate).toISOString().split('T')[0] : '',
+      startDate: chapter.startDate ? formatInputDate(chapter.startDate) : '',
+      endDate: chapter.endDate ? formatInputDate(chapter.endDate) : '',
       useDateRange: !!(chapter.startDate || chapter.endDate),
     });
     setShowForm(true);

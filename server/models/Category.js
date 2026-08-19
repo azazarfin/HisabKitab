@@ -30,7 +30,7 @@ const categorySchema = new mongoose.Schema(
   }
 );
 
-// Unique category name per user (not globally)
-categorySchema.index({ userId: 1, name: 1 }, { unique: true });
+// Unique category name per user (case-insensitive)
+categorySchema.index({ userId: 1, name: 1 }, { unique: true, collation: { locale: 'en', strength: 2 } });
 
 module.exports = mongoose.model('Category', categorySchema);

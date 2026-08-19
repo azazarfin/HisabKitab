@@ -66,7 +66,7 @@ export default function LoginPage() {
             <span className="auth-alert__icon">📧</span>
             <span>
               Check your inbox for the verification email.{' '}
-              <Link to="/forgot-password" className="auth-link--inline">
+              <Link to="/forgot-password?mode=verify" className="auth-link--inline">
                 Resend verification
               </Link>
             </span>

@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const accessTokenRef = useRef(null);
   const refreshTimeoutRef = useRef(null);
+  const refreshPromiseRef = useRef(null);
 
   // Schedule silent token refresh (2 minutes before expiry)
   const scheduleRefresh = useCallback((expiresInMs = 15 * 60 * 1000) => {
@@ -27,29 +28,39 @@ export const AuthProvider = ({ children }) => {
     }, refreshIn);
   }, []);
 
-  // Silent refresh — get new access token using httpOnly cookie
+  // Silent refresh — single-flight mutex to avoid race conditions
   const silentRefresh = useCallback(async () => {
-    try {
-      const res = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        throw new Error('Refresh failed');
-      }
-
-      const data = await res.json();
-      accessTokenRef.current = data.accessToken;
-      setUser(data.user);
-      scheduleRefresh();
-      return data.accessToken;
-    } catch {
-      // Refresh failed — user needs to log in again
-      accessTokenRef.current = null;
-      setUser(null);
-      return null;
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
     }
+
+    refreshPromiseRef.current = (async () => {
+      try {
+        const res = await fetch('/api/auth/refresh', {
+          method: 'POST',
+          credentials: 'include',
+        });
+
+        if (!res.ok) {
+          throw new Error('Refresh failed');
+        }
+
+        const data = await res.json();
+        accessTokenRef.current = data.accessToken;
+        setUser(data.user);
+        scheduleRefresh();
+        return data.accessToken;
+      } catch {
+        // Refresh failed — user needs to log in again
+        accessTokenRef.current = null;
+        setUser(null);
+        return null;
+      } finally {
+        refreshPromiseRef.current = null;
+      }
+    })();
+
+    return refreshPromiseRef.current;
   }, [scheduleRefresh]);
 
   // On mount, try to restore session
@@ -68,9 +79,9 @@ export const AuthProvider = ({ children }) => {
     };
   }, [silentRefresh]);
 
-  // Get current access token (with auto-refresh if expired)
-  const getAccessToken = useCallback(async () => {
-    if (accessTokenRef.current) {
+  // Get current access token (with auto-refresh or forced refresh)
+  const getAccessToken = useCallback(async (forceRefresh = false) => {
+    if (!forceRefresh && accessTokenRef.current) {
       return accessTokenRef.current;
     }
     return silentRefresh();

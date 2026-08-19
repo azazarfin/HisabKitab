@@ -50,8 +50,8 @@ const transactionSchema = new mongoose.Schema(
   }
 );
 
-// Index for efficient chapter-based queries
-transactionSchema.index({ chapterId: 1, date: -1 });
-transactionSchema.index({ chapterId: 1, type: 1 });
+// Indexes for efficient user and chapter queries
+transactionSchema.index({ userId: 1, chapterId: 1, date: -1 });
+transactionSchema.index({ userId: 1, chapterId: 1, type: 1 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

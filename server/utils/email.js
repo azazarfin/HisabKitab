@@ -93,12 +93,16 @@ const emailTemplate = (title, bodyContent) => `
 </html>
 `;
 
+const getClientBaseUrl = () => {
+  return (process.env.CLIENT_URL || 'http://localhost:3000').replace(/\/+$/, '');
+};
+
 /**
  * Send email verification link
  */
 const sendVerificationEmail = async (to, name, token) => {
   const transporter = createTransporter();
-  const verifyUrl = `${process.env.CLIENT_URL}/verify-email/${token}`;
+  const verifyUrl = `${getClientBaseUrl()}/verify-email/${token}`;
 
   const body = `
     <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
@@ -152,7 +156,7 @@ const sendVerificationEmail = async (to, name, token) => {
  */
 const sendPasswordResetEmail = async (to, name, token) => {
   const transporter = createTransporter();
-  const resetUrl = `${process.env.CLIENT_URL}/reset-password/${token}`;
+  const resetUrl = `${getClientBaseUrl()}/reset-password/${token}`;
 
   const body = `
     <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
@@ -229,74 +233,76 @@ const smtpHealthCheck = async () => {
     return { ok: false, reason: `SMTP connection failed: ${err.message}` };
   }
 
-  // Step 2: Send test email
-  try {
-    const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
+  // Step 2: Send test email only if explicitly enabled
+  if (process.env.SEND_STARTUP_EMAIL === 'true') {
+    try {
+      const now = new Date().toLocaleString('en-US', { timeZone: 'Asia/Dhaka' });
 
-    const body = `
-      <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
-        Server Started Successfully
-      </h2>
-      <p style="margin:0 0 16px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
-        HisabKitab backend has started and the SMTP mail system is working correctly.
-      </p>
-      <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
-        <tr>
-          <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-            <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">Timestamp</p>
-            <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${now}</p>
-          </td>
-        </tr>
-        <tr><td style="height:8px;"></td></tr>
-        <tr>
-          <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-            <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">SMTP Host</p>
-            <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${process.env.SMTP_HOST}:${process.env.SMTP_PORT}</p>
-          </td>
-        </tr>
-        <tr><td style="height:8px;"></td></tr>
-        <tr>
-          <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
-            <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">Environment</p>
-            <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${process.env.NODE_ENV || 'development'}</p>
-          </td>
-        </tr>
-      </table>
-      <p style="margin:0; font-size:13px; color:rgba(255,255,255,0.35); line-height:1.5;">
-        If you're receiving this, your email system is fully operational. No action is needed.
-      </p>
-    `;
+      const body = `
+        <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
+          Server Started Successfully
+        </h2>
+        <p style="margin:0 0 16px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
+          HisabKitab backend has started and the SMTP mail system is working correctly.
+        </p>
+        <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:16px;">
+          <tr>
+            <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+              <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">Timestamp</p>
+              <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${now}</p>
+            </td>
+          </tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr>
+            <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+              <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">SMTP Host</p>
+              <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${process.env.SMTP_HOST}:${process.env.SMTP_PORT}</p>
+            </td>
+          </tr>
+          <tr><td style="height:8px;"></td></tr>
+          <tr>
+            <td style="padding:12px 16px; background:rgba(255,255,255,0.04); border-radius:8px; border:1px solid rgba(255,255,255,0.06);">
+              <p style="margin:0 0 6px; font-size:13px; color:rgba(255,255,255,0.4);">Environment</p>
+              <p style="margin:0; font-size:15px; color:#ffffff; font-weight:500;">${process.env.NODE_ENV || 'development'}</p>
+            </td>
+          </tr>
+        </table>
+        <p style="margin:0; font-size:13px; color:rgba(255,255,255,0.35); line-height:1.5;">
+          If you're receiving this, your email system is fully operational. No action is needed.
+        </p>
+      `;
 
-    // Plain-text alternative
-    const plainText = [
-      'HisabKitab Server Health Check',
-      '',
-      'Your backend has started and the SMTP mail system is working correctly.',
-      '',
-      `Timestamp: ${now}`,
-      `SMTP Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`,
-      `Environment: ${process.env.NODE_ENV || 'development'}`,
-      '',
-      'No action is needed.',
-      '',
-      '- HisabKitab System',
-    ].join('\n');
+      const plainText = [
+        'HisabKitab Server Health Check',
+        '',
+        'Your backend has started and the SMTP mail system is working correctly.',
+        '',
+        `Timestamp: ${now}`,
+        `SMTP Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`,
+        `Environment: ${process.env.NODE_ENV || 'development'}`,
+        '',
+        'No action is needed.',
+        '',
+        '- HisabKitab System',
+      ].join('\n');
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: adminEmail,
-      subject: `HisabKitab Server Started - ${now}`,
-      text: plainText,
-      html: emailTemplate('Server Health Check', body),
-      headers: getCommonHeaders(),
-    });
+      await transporter.sendMail({
+        from: process.env.SMTP_FROM,
+        to: adminEmail,
+        subject: `HisabKitab Server Started - ${now}`,
+        text: plainText,
+        html: emailTemplate('Server Health Check', body),
+        headers: getCommonHeaders(),
+      });
 
-    console.log(`📧 Health check email sent to ${adminEmail}`);
-    return { ok: true };
-  } catch (err) {
-    console.error('❌ Failed to send health check email:', err.message);
-    return { ok: false, reason: `Send failed: ${err.message}` };
+      console.log(`📧 Health check email sent to ${adminEmail}`);
+    } catch (err) {
+      console.error('❌ Failed to send health check email:', err.message);
+      return { ok: false, reason: `Send failed: ${err.message}` };
+    }
   }
+
+  return { ok: true };
 };
 
 module.exports = { sendVerificationEmail, sendPasswordResetEmail, smtpHealthCheck };

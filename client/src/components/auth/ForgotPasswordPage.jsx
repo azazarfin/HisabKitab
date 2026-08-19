@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { forgotPassword, resendVerification } from '../../api/api';
 
 export default function ForgotPasswordPage() {
+  const [searchParams] = useSearchParams();
+  const initialMode = searchParams.get('mode') === 'verify' ? 'verify' : 'reset';
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState('reset'); // 'reset' | 'verify'
+  const [mode, setMode] = useState(initialMode); // 'reset' | 'verify'
 
   const handleSubmit = async (e) => {
     e.preventDefault();

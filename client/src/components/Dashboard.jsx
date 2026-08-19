@@ -42,12 +42,14 @@ const Dashboard = ({
 
   const categoryTotals = Object.values(
     expenseTransactions.reduce((acc, t) => {
-      const catId = t.categoryId?._id || t.categoryId;
-      if (!catId) return acc;
+      const catId = t.categoryId?._id || t.categoryId || 'uncategorized';
       if (!acc[catId]) {
-        const cat = typeof t.categoryId === 'object' ? t.categoryId : categoryMap[catId];
-        if (!cat) return acc;
-        acc[catId] = { ...cat, total: 0 };
+        if (catId === 'uncategorized') {
+          acc[catId] = { _id: 'uncategorized', name: 'Uncategorized', emoji: '📦', color: '#64748b', total: 0 };
+        } else {
+          const cat = typeof t.categoryId === 'object' ? t.categoryId : categoryMap[catId];
+          acc[catId] = cat ? { ...cat, total: 0 } : { _id: catId, name: 'Uncategorized', emoji: '📦', color: '#64748b', total: 0 };
+        }
       }
       acc[catId].total += t.amount;
       return acc;

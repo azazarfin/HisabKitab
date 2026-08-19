@@ -227,7 +227,7 @@ function App() {
         const txns = await fetchTransactions(chapterId);
         setTransactions(txns);
       } catch (err) {
-        addToast('Failed to load transactions', 'error');
+        addToast(err.message || 'Failed to load transactions', 'error');
       }
     }
   };
@@ -240,7 +240,7 @@ function App() {
       setTransactions([]);
       addToast('Chapter created! 📖');
     } catch (err) {
-      addToast('Failed to create chapter', 'error');
+      addToast(err.message || 'Failed to create chapter', 'error');
     }
   };
 
@@ -251,7 +251,7 @@ function App() {
       if (activeChapter?._id === id) setActiveChapter(updated);
       addToast('Chapter updated! ✏️');
     } catch (err) {
-      addToast('Failed to update chapter', 'error');
+      addToast(err.message || 'Failed to update chapter', 'error');
     }
   };
 
@@ -272,7 +272,7 @@ function App() {
       }
       addToast('Chapter deleted 🗑️');
     } catch (err) {
-      addToast('Failed to delete chapter', 'error');
+      addToast(err.message || 'Failed to delete chapter', 'error');
     }
   };
 
@@ -284,7 +284,7 @@ function App() {
         loadTransactions();
       }
     } catch (err) {
-      addToast('Failed to import transactions', 'error');
+      addToast(err.message || 'Failed to import transactions', 'error');
     }
   };
 
@@ -296,7 +296,7 @@ function App() {
       setShowTransactionForm(false);
       loadTransactions();
     } catch (err) {
-      addToast('Failed to add transaction', 'error');
+      addToast(err.message || 'Failed to add transaction', 'error');
     }
   };
 
@@ -307,7 +307,7 @@ function App() {
       setEditingTransaction(null);
       loadTransactions();
     } catch (err) {
-      addToast('Failed to update transaction', 'error');
+      addToast(err.message || 'Failed to update transaction', 'error');
     }
   };
 
@@ -321,7 +321,7 @@ function App() {
           addToast('Transaction deleted 🗑️');
           loadTransactions();
         } catch (err) {
-          addToast('Failed to delete transaction', 'error');
+          addToast(err.message || 'Failed to delete transaction', 'error');
         }
       }
     );
@@ -346,7 +346,7 @@ function App() {
       );
       addToast('Category updated! ✏️');
     } catch (err) {
-      addToast('Failed to update category', 'error');
+      addToast(err.message || 'Failed to update category', 'error');
     }
   };
 
@@ -354,9 +354,15 @@ function App() {
     try {
       await deleteCategory(id);
       setCategories((prev) => prev.filter((c) => c._id !== id));
+      // Remove recurring expenses under this category
+      setRecurringExpenses((prev) => prev.filter((r) => (r.categoryId?._id || r.categoryId) !== id));
+      // Clear category on loaded transactions
+      setTransactions((prev) =>
+        prev.map((t) => ((t.categoryId?._id || t.categoryId) === id ? { ...t, categoryId: null } : t))
+      );
       addToast('Category deleted 🗑️');
     } catch (err) {
-      addToast('Failed to delete category', 'error');
+      addToast(err.message || 'Failed to delete category', 'error');
     }
   };
 
@@ -379,7 +385,7 @@ function App() {
       );
       addToast('Payment method updated! ✏️');
     } catch (err) {
-      addToast('Failed to update payment method', 'error');
+      addToast(err.message || 'Failed to update payment method', 'error');
     }
   };
 
@@ -387,9 +393,15 @@ function App() {
     try {
       await deletePaymentMethod(id);
       setPaymentMethods((prev) => prev.filter((m) => m._id !== id));
+      // Clear payment method on loaded transactions
+      setTransactions((prev) =>
+        prev.map((t) =>
+          (t.paymentMethodId?._id || t.paymentMethodId) === id ? { ...t, paymentMethodId: null } : t
+        )
+      );
       addToast('Payment method deleted 🗑️');
     } catch (err) {
-      addToast('Failed to delete payment method', 'error');
+      addToast(err.message || 'Failed to delete payment method', 'error');
     }
   };
 
@@ -400,7 +412,7 @@ function App() {
       setRecurringExpenses((prev) => [...prev, saved]);
       addToast('Recurring expense added! 🔄');
     } catch (err) {
-      addToast('Failed to create recurring expense', 'error');
+      addToast(err.message || 'Failed to create recurring expense', 'error');
     }
   };
 
@@ -410,7 +422,7 @@ function App() {
       setRecurringExpenses((prev) => prev.map((r) => (r._id === id ? updated : r)));
       addToast('Recurring expense updated! ✏️');
     } catch (err) {
-      addToast('Failed to update recurring expense', 'error');
+      addToast(err.message || 'Failed to update recurring expense', 'error');
     }
   };
 
@@ -420,7 +432,7 @@ function App() {
       setRecurringExpenses((prev) => prev.filter((r) => r._id !== id));
       addToast('Recurring expense deleted 🗑️');
     } catch (err) {
-      addToast('Failed to delete recurring expense', 'error');
+      addToast(err.message || 'Failed to delete recurring expense', 'error');
     }
   };
 
@@ -613,6 +625,7 @@ function App() {
           onUpdateCategory={handleUpdateCategory}
           onDeleteCategory={handleDeleteCategory}
           onClose={() => setShowCategoryManager(false)}
+          showConfirm={showConfirm}
         />
       )}
 
@@ -624,6 +637,7 @@ function App() {
           onUpdateMethod={handleUpdatePaymentMethod}
           onDeleteMethod={handleDeletePaymentMethod}
           onClose={() => setShowPaymentMethodManager(false)}
+          showConfirm={showConfirm}
         />
       )}
 
@@ -636,6 +650,8 @@ function App() {
           onUpdateRecurring={handleUpdateRecurring}
           onDeleteRecurring={handleDeleteRecurring}
           onClose={() => setShowRecurringManager(false)}
+          showConfirm={showConfirm}
+          addToast={addToast}
         />
       )}
 

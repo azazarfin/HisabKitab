@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const PaymentMethod = require('../models/PaymentMethod');
+const Transaction = require('../models/Transaction');
+const { validateObjectId } = require('../middleware/validateObjectId');
 
 // GET /api/payment-methods — list all for the authenticated user
 router.get('/', async (req, res) => {
@@ -16,7 +18,17 @@ router.get('/', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const { name, emoji } = req.body;
-    const method = new PaymentMethod({ userId: req.user.id, name, emoji });
+
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
+      return res.status(400).json({ message: 'Payment method name is required' });
+    }
+
+    const method = new PaymentMethod({
+      userId: req.user.id,
+      name: name.trim(),
+      emoji: emoji || '💳',
+    });
+
     const saved = await method.save();
     res.status(201).json(saved);
   } catch (error) {
@@ -27,12 +39,23 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PUT /api/payment-methods/:id — update
-router.put('/:id', async (req, res) => {
+// PUT /api/payment-methods/:id — update (whitelisted fields)
+router.put('/:id', validateObjectId(['id']), async (req, res) => {
   try {
+    const { name, emoji } = req.body;
+    const updateData = {};
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ message: 'Payment method name cannot be empty' });
+      }
+      updateData.name = name.trim();
+    }
+    if (emoji !== undefined) updateData.emoji = String(emoji).trim();
+
     const method = await PaymentMethod.findOneAndUpdate(
       { _id: req.params.id, userId: req.user.id },
-      req.body,
+      { $set: updateData },
       { new: true, runValidators: true }
     );
 
@@ -49,8 +72,8 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// DELETE /api/payment-methods/:id — delete
-router.delete('/:id', async (req, res) => {
+// DELETE /api/payment-methods/:id — delete and clear transaction references
+router.delete('/:id', validateObjectId(['id']), async (req, res) => {
   try {
     const method = await PaymentMethod.findOneAndDelete({
       _id: req.params.id,
@@ -61,7 +84,13 @@ router.delete('/:id', async (req, res) => {
       return res.status(404).json({ message: 'Payment method not found' });
     }
 
-    res.json({ message: 'Payment method deleted' });
+    // Set paymentMethodId to null on transactions using this method
+    await Transaction.updateMany(
+      { paymentMethodId: req.params.id, userId: req.user.id },
+      { $set: { paymentMethodId: null } }
+    );
+
+    res.json({ message: 'Payment method deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

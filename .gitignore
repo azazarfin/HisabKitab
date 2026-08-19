@@ -59,3 +59,4 @@ Thumbs.db
 *.tmp
 *.bak
 mailserver_setup_context.md
+hisabkitab-webhook@.service

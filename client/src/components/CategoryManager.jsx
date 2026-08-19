@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { defaultCategorySuggestions } from '../data/categories';
 
-const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDeleteCategory, onClose }) => {
+const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDeleteCategory, onClose, showConfirm }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({ name: '', emoji: '📦', color: '#64748b' });
@@ -40,6 +40,18 @@ const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDel
     setShowForm(true);
   };
 
+  const handleDeleteClick = (cat) => {
+    if (showConfirm) {
+      showConfirm(
+        'Delete Category',
+        `Delete category "${cat.name}"? Existing transactions will become uncategorized.`,
+        () => onDeleteCategory(cat._id)
+      );
+    } else {
+      onDeleteCategory(cat._id);
+    }
+  };
+
   const emojiOptions = ['📦', '🍚', '🏠', '🚌', '📱', '⚡', '👨‍👩‍👧‍👦', '🏥', '👕', '📚', '🎭', '🤝', '💼', '🎮', '☕', '🛒', '💊', '🎓', '🏋️', '✈️', '🐕', '🎁', '🔧', '📝'];
 
   return (
@@ -58,9 +70,9 @@ const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDel
               {availableSuggestions.map((s) => (
                 <button
                   key={s.name}
+                  type="button"
                   className="suggestion-chip"
                   onClick={() => handleSuggestionClick(s)}
-                  style={{ borderColor: s.color + '40', background: s.color + '10' }}
                 >
                   <span>{s.emoji}</span>
                   <span>{s.name}</span>
@@ -70,70 +82,69 @@ const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDel
           </div>
         )}
 
-        {/* Add / Edit Form */}
-        {!showForm ? (
-          <button
-            className="btn btn--primary btn--full"
-            onClick={() => setShowForm(true)}
-            style={{ marginTop: 'var(--space-md)' }}
-          >
-            ➕ Add Custom Category
-          </button>
-        ) : (
-          <form className="manager-form" onSubmit={handleSubmit}>
-            <div className="form-row form-row--3col">
-              <div className="form-group">
-                <label className="form-label">Emoji</label>
-                <div className="emoji-picker">
-                  {emojiOptions.map((em) => (
-                    <button
-                      key={em}
-                      type="button"
-                      className={`emoji-btn ${formData.emoji === em ? 'emoji-btn--active' : ''}`}
-                      onClick={() => setFormData((p) => ({ ...p, emoji: em }))}
-                    >
-                      {em}
-                    </button>
-                  ))}
-                </div>
-              </div>
+        {/* Add/Edit Form */}
+        {showForm ? (
+          <form className="manager-form animate-fade-in" onSubmit={handleSubmit}>
+            <div className="form-group">
+              <label className="form-label" htmlFor="cat-name">Category Name</label>
+              <input
+                id="cat-name"
+                className="form-input"
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                placeholder="e.g., Groceries, Rent, Gym"
+                required
+                autoFocus
+              />
+            </div>
 
-              <div className="form-group" style={{ flex: 2 }}>
-                <label className="form-label" htmlFor="cat-name">Category Name</label>
+            <div className="form-group">
+              <label className="form-label">Pick Emoji</label>
+              <div className="emoji-picker">
+                {emojiOptions.map((emoji) => (
+                  <button
+                    key={emoji}
+                    type="button"
+                    className={`emoji-btn ${formData.emoji === emoji ? 'emoji-btn--selected' : ''}`}
+                    onClick={() => setFormData({ ...formData, emoji })}
+                  >
+                    {emoji}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label" htmlFor="cat-color">Badge Color</label>
+              <div className="color-picker-row">
                 <input
-                  id="cat-name"
-                  className="form-input"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g., Groceries"
-                  required
-                  autoFocus
+                  id="cat-color"
+                  type="color"
+                  className="color-input"
+                  value={formData.color}
+                  onChange={(e) => setFormData({ ...formData, color: e.target.value })}
                 />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label" htmlFor="cat-color">Color</label>
-                <div className="color-picker-wrapper">
-                  <input
-                    id="cat-color"
-                    className="form-color"
-                    type="color"
-                    value={formData.color}
-                    onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
-                  />
-                  <span className="color-preview" style={{ background: formData.color }}></span>
-                </div>
+                <span className="color-preview-text">{formData.color}</span>
               </div>
             </div>
 
             <div className="form-actions">
-              <button type="button" className="btn btn--secondary" onClick={resetForm}>Cancel</button>
+              <button type="button" className="btn btn--secondary" onClick={resetForm}>
+                Cancel
+              </button>
               <button type="submit" className="btn btn--primary">
-                {editingId ? 'Update' : 'Add Category'}
+                {editingId ? 'Update Category' : 'Add Category'}
               </button>
             </div>
           </form>
+        ) : (
+          <button
+            className="btn btn--primary btn--full mb-4"
+            onClick={() => setShowForm(true)}
+          >
+            + Add New Category
+          </button>
         )}
 
         {/* Category List */}
@@ -141,7 +152,7 @@ const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDel
           {categories.length === 0 ? (
             <div className="empty-state">
               <span className="empty-state__icon">🏷️</span>
-              <p>No categories yet. Add from suggestions or create your own!</p>
+              <p>No categories yet. Add one above!</p>
             </div>
           ) : (
             categories.map((cat) => (
@@ -169,11 +180,7 @@ const CategoryManager = ({ categories, onCreateCategory, onUpdateCategory, onDel
                   </button>
                   <button
                     className="btn btn--danger btn--icon"
-                    onClick={() => {
-                      if (confirm(`Delete category "${cat.name}"?`)) {
-                        onDeleteCategory(cat._id);
-                      }
-                    }}
+                    onClick={() => handleDeleteClick(cat)}
                     title="Delete"
                   >
                     🗑️

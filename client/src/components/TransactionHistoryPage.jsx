@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { formatCurrency, formatDate } from '../utils/helpers';
+import { useState, useMemo, useEffect } from 'react';
+import { formatCurrency, formatDate, parseLocalDateBoundary } from '../utils/helpers';
 
 const TransactionHistoryPage = ({
   transactions = [],
@@ -80,11 +80,8 @@ const TransactionHistoryPage = ({
   // Filtering & Sorting Logic
   const filteredTransactions = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const start = startDate ? new Date(startDate) : null;
-    if (start) start.setHours(0, 0, 0, 0);
-
-    const end = endDate ? new Date(endDate) : null;
-    if (end) end.setHours(23, 59, 59, 999);
+    const start = parseLocalDateBoundary(startDate, false);
+    const end = parseLocalDateBoundary(endDate, true);
 
     return transactions
       .filter((txn) => {
@@ -150,6 +147,7 @@ const TransactionHistoryPage = ({
     sortBy,
     sortOrder,
     categoryMap,
+    paymentMethodMap,
   ]);
 
   // Statistics of Filtered Results
@@ -175,6 +173,13 @@ const TransactionHistoryPage = ({
     return filteredTransactions.slice(startIdx, startIdx + pageSize);
   }, [filteredTransactions, currentPage, pageSize]);
 
+  // Ensure current page is valid when data changes
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(Math.max(1, totalPages));
+    }
+  }, [totalPages, currentPage]);
+
   // Reset Filters Handler
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -190,31 +195,35 @@ const TransactionHistoryPage = ({
   const handleExportCSV = () => {
     if (filteredTransactions.length === 0) return;
 
+    const escapeCsv = (val) => {
+      if (val === null || val === undefined) return '""';
+      return `"${String(val).replace(/"/g, '""')}"`;
+    };
+
     const headers = ['Type', 'Date', 'Category', 'Description/Title', 'Payment Method', 'Amount'];
     const rows = filteredTransactions.map((txn) => {
       const cat = getCategoryInfo(txn);
       const pm = getPaymentInfo(txn);
       return [
-        txn.type,
-        formatDate(txn.date),
-        cat ? cat.name : 'N/A',
-        `"${(txn.description || '').replace(/"/g, '""')}"`,
-        pm ? pm.name : 'N/A',
-        txn.amount,
+        escapeCsv(txn.type),
+        escapeCsv(formatDate(txn.date)),
+        escapeCsv(cat ? cat.name : 'Uncategorized'),
+        escapeCsv(txn.description || 'Untitled'),
+        escapeCsv(pm ? pm.name : 'N/A'),
+        escapeCsv(txn.amount),
       ];
     });
 
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.map((h) => `"${h}"`).join(','), ...rows.map((e) => e.join(','))].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `hisabkitab_transactions_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
