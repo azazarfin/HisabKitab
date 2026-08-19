@@ -40,24 +40,23 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
-// Sanitize against NoSQL injection
-app.use(
-  mongoSanitize({
-    allowDots: true,
-    replaceWith: '_',
-  })
-);
+// Health check endpoint (always accessible, before rate limiters/sanitizers)
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', message: 'HisabKitab API is running' });
+});
+
+// Sanitize against NoSQL injection (Express 5 compatible)
+app.use((req, res, next) => {
+  if (req.body) mongoSanitize.sanitize(req.body, { replaceWith: '_' });
+  if (req.params) mongoSanitize.sanitize(req.params, { replaceWith: '_' });
+  next();
+});
 
 // Apply general API rate limiting to all /api routes
 app.use('/api', apiLimiter);
 
 // Public Routes (no auth required)
 app.use('/api/auth', require('./routes/auth'));
-
-// Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'HisabKitab API is running' });
-});
 
 // Protected Routes (auth required)
 app.use('/api/chapters', authMiddleware, require('./routes/chapters'));
