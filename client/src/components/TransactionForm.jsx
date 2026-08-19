@@ -176,9 +176,9 @@ const TransactionForm = ({ categories, paymentMethods, chapterId, onSubmit, onCl
 
           {transactionType === 'balance' && (
             <div className="form-group">
-              <label className="form-label" htmlFor="txn-payment">Deposited Via</label>
+              <label className="form-label" htmlFor="txn-payment-balance">Deposited Via</label>
               <select
-                id="txn-payment"
+                id="txn-payment-balance"
                 className="form-select"
                 name="paymentMethodId"
                 value={formData.paymentMethodId}

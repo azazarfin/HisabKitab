@@ -5,7 +5,6 @@ import { useAuth } from './context/AuthContext';
 import { setTokenGetter } from './api/api';
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
-import TransactionList from './components/TransactionList';
 import TransactionHistoryPage from './components/TransactionHistoryPage';
 import TransactionForm from './components/TransactionForm';
 import ChapterManager from './components/ChapterManager';
@@ -13,6 +12,8 @@ import CategoryManager from './components/CategoryManager';
 import PaymentMethodManager from './components/PaymentMethodManager';
 import RecurringManager from './components/RecurringManager';
 import SettingsPanel from './components/SettingsPanel';
+import ConfirmDialog from './components/ConfirmDialog';
+import BottomNav from './components/BottomNav';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
@@ -81,6 +82,66 @@ function App() {
   const [showRecurringManager, setShowRecurringManager] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Delete',
+    variant: 'danger',
+    onConfirm: null,
+  });
+
+  // SW update banner state
+  const [swUpdateAvailable, setSwUpdateAvailable] = useState(null);
+
+  // Listen for SW update events
+  useEffect(() => {
+    const handleSwUpdate = (e) => {
+      setSwUpdateAvailable(e.detail.registration);
+    };
+    window.addEventListener('sw-update-available', handleSwUpdate);
+    return () => window.removeEventListener('sw-update-available', handleSwUpdate);
+  }, []);
+
+  const handleSwUpdate = () => {
+    if (swUpdateAvailable?.waiting) {
+      swUpdateAvailable.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+    setSwUpdateAvailable(null);
+  };
+
+  // Body scroll lock when any modal is open
+  const isAnyModalOpen = showTransactionForm || editingTransaction || showChapterManager ||
+    showCategoryManager || showPaymentMethodManager || showRecurringManager || showSettings || confirmDialog.isOpen;
+
+  useEffect(() => {
+    if (isAnyModalOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isAnyModalOpen]);
+
+  const showConfirm = useCallback((title, message, onConfirm, options = {}) => {
+    setConfirmDialog({
+      isOpen: true,
+      title,
+      message,
+      confirmText: options.confirmText || 'Delete',
+      variant: options.variant || 'danger',
+      onConfirm: () => {
+        onConfirm();
+        setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+      },
+    });
+  }, []);
+
+  const closeConfirm = useCallback(() => {
+    setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
+  }, []);
+
   const handleOpenAddTransaction = (type = 'expense') => {
     setTransactionFormType(type);
     setShowTransactionForm(true);
@@ -89,13 +150,13 @@ function App() {
   // Toast state
   const [toasts, setToasts] = useState([]);
 
-  const addToast = (message, type = 'success') => {
+  const addToast = useCallback((message, type = 'success') => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 3000);
-  };
+  }, []);
 
   // ─── Initial Data Load ──────────────────────────────────────
   const loadInitialData = useCallback(async () => {
@@ -126,7 +187,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, addToast]);
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -155,7 +216,7 @@ function App() {
     } catch (err) {
       addToast('Failed to load transactions', 'error');
     }
-  }, [activeChapter]);
+  }, [activeChapter, addToast]);
 
   // ─── Chapter Handlers ───────────────────────────────────────
   const handleSelectChapter = async (chapterId) => {
@@ -251,14 +312,19 @@ function App() {
   };
 
   const handleDeleteTransaction = async (id) => {
-    if (!confirm('Delete this transaction?')) return;
-    try {
-      await deleteTransaction(id);
-      addToast('Transaction deleted 🗑️');
-      loadTransactions();
-    } catch (err) {
-      addToast('Failed to delete transaction', 'error');
-    }
+    showConfirm(
+      'Delete Transaction',
+      'Are you sure you want to delete this transaction? This action cannot be undone.',
+      async () => {
+        try {
+          await deleteTransaction(id);
+          addToast('Transaction deleted 🗑️');
+          loadTransactions();
+        } catch (err) {
+          addToast('Failed to delete transaction', 'error');
+        }
+      }
+    );
   };
 
   // ─── Category Handlers ─────────────────────────────────────
@@ -377,6 +443,16 @@ function App() {
 
   return (
     <>
+      {/* SW Update Banner */}
+      {swUpdateAvailable && (
+        <div className="sw-update-banner">
+          <span>🔄 A new version is available!</span>
+          <button type="button" className="btn btn--primary btn--sm" onClick={handleSwUpdate}>
+            Update Now
+          </button>
+        </div>
+      )}
+
       <Routes>
         {/* Public Auth Routes */}
         <Route
@@ -460,14 +536,23 @@ function App() {
                   activeChapter={activeChapter}
                   onEdit={(txn) => setEditingTransaction(txn)}
                   onDelete={handleDeleteTransaction}
-                  onAddTransaction={(type) => handleOpenAddTransaction(type)}
-                  onBackToDashboard={() => navigate('/')}
                 />
               </div>
             </ProtectedRoute>
           }
         />
       </Routes>
+
+      {/* Mobile Bottom Navigation */}
+      {isAuthenticated && (
+        <BottomNav
+          onAddTransaction={handleOpenAddTransaction}
+          onOpenSettings={() => setShowSettings(true)}
+          activeChapter={activeChapter}
+          chapters={chapters}
+          onSelectChapter={handleSelectChapter}
+        />
+      )}
 
       {/* Add Transaction Modal */}
       {showTransactionForm && activeChapter && (
@@ -503,6 +588,7 @@ function App() {
           onDeleteChapter={handleDeleteChapter}
           onImport={handleImportChapter}
           onClose={() => setShowChapterManager(false)}
+          showConfirm={showConfirm}
         />
       )}
 
@@ -552,6 +638,17 @@ function App() {
           onClose={() => setShowRecurringManager(false)}
         />
       )}
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        confirmText={confirmDialog.confirmText}
+        variant={confirmDialog.variant}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={closeConfirm}
+      />
 
       {/* Toast Notifications */}
       <div className="toast-container">

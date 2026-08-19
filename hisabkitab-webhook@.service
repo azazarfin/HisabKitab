@@ -1,0 +1,28 @@
+[Unit]
+Description=HisabKitab GitHub Webhook Auto-Deploy Listener
+Documentation=https://docs.github.com/en/webhooks
+After=network.target
+
+[Service]
+Type=simple
+User=%i
+WorkingDirectory=/opt/hisabkitab
+ExecStart=/usr/bin/node /opt/hisabkitab/webhook.js
+
+# Environment variables
+Environment=WEBHOOK_PORT=9000
+Environment=DEPLOY_BRANCH=main
+# Set your GitHub webhook secret here (must match the secret in GitHub settings)
+Environment=WEBHOOK_SECRET=your-webhook-secret-here
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hisabkitab-webhook
+
+[Install]
+WantedBy=multi-user.target

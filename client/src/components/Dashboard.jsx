@@ -61,6 +61,9 @@ const Dashboard = ({
 
   return (
     <div className="dashboard">
+      <div className="mobile-only-chapter-info">
+        Showing for <span className="gradient-text font-bold">'{activeChapter?.name || 'All Chapters'}'</span>
+      </div>
       {/* Summary Cards */}
       <div className="summary-grid">
         <div className="glass-card summary-card summary-card--balance animate-fade-in">

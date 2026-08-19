@@ -1,5 +1,4 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
 import { formatCurrency, formatDate } from '../utils/helpers';
 
 const TransactionHistoryPage = ({
@@ -20,6 +19,9 @@ const TransactionHistoryPage = ({
 
   // View Mode: 'cards' | 'table'
   const [viewMode, setViewMode] = useState('cards');
+
+  // Mobile Filters Toggle State
+  const [isFiltersOpen, setIsFiltersOpen] = useState(false);
 
   // Sorting State
   const [sortBy, setSortBy] = useState('date');
@@ -148,7 +150,6 @@ const TransactionHistoryPage = ({
     sortBy,
     sortOrder,
     categoryMap,
-    paymentMethodMap,
   ]);
 
   // Statistics of Filtered Results
@@ -292,7 +293,18 @@ const TransactionHistoryPage = ({
 
       {/* Advanced Filter Toolbar */}
       <div className="glass-card history-filter-bar">
-        <div className="history-filter-bar__top">
+        <div className="history-filter-bar__mobile-toggle">
+          <button 
+            type="button" 
+            className="btn btn--secondary btn--full btn--sm"
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+          >
+            {isFiltersOpen ? '▲ Hide Filters' : '▼ Show Advanced Filters'}
+          </button>
+        </div>
+
+        <div className={`history-filter-bar__content ${isFiltersOpen ? 'is-open' : ''}`}>
+          <div className="history-filter-bar__top">
           {/* Search Box */}
           <div className="filter-group">
             <label className="filter-label">Search</label>
@@ -457,6 +469,7 @@ const TransactionHistoryPage = ({
                 <option value={50}>50</option>
                 <option value={100}>100</option>
               </select>
+            </div>
             </div>
           </div>
         </div>

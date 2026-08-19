@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { formatCurrency, formatDate } from '../utils/helpers';
 
 const TransactionList = ({
@@ -7,6 +6,7 @@ const TransactionList = ({
   paymentMethods = [],
   onEdit,
   onDelete,
+  onViewAll,
   maxDisplay = 5,
 }) => {
   const getCategoryInfo = (transaction) => {
@@ -98,13 +98,16 @@ const TransactionList = ({
 
       {/* Centered Referral Link to Full History Page */}
       <div className="dashboard-history-footer">
-        <Link
-          to="/history"
+        <button
+          type="button"
           className="view-full-history-link"
-          onClick={() => window.scrollTo({ top: 0, behavior: 'instant' })}
+          onClick={() => {
+            window.scrollTo({ top: 0, behavior: 'instant' });
+            if (onViewAll) onViewAll();
+          }}
         >
           View Full History →
-        </Link>
+        </button>
       </div>
     </div>
   );

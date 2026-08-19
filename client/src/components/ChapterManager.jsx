@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { formatDateShort } from '../utils/helpers';
 
-const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteChapter, onImport, onClose }) => {
+const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteChapter, onImport, onClose, showConfirm }) => {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [formData, setFormData] = useState({
@@ -56,6 +56,18 @@ const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteCh
       onImport(targetId, importSource);
       setImportSource(null);
       setImportTarget(null);
+    }
+  };
+
+  const handleDeleteClick = (chapter) => {
+    if (showConfirm) {
+      showConfirm(
+        'Delete Chapter',
+        `Delete "${chapter.name}" and all its transactions? This cannot be undone.`,
+        () => onDeleteChapter(chapter._id)
+      );
+    } else {
+      onDeleteChapter(chapter._id);
     }
   };
 
@@ -215,11 +227,7 @@ const ChapterManager = ({ chapters, onCreateChapter, onUpdateChapter, onDeleteCh
                       </button>
                       <button
                         className="btn btn--danger btn--icon"
-                        onClick={() => {
-                          if (confirm(`Delete "${chapter.name}" and all its transactions?`)) {
-                            onDeleteChapter(chapter._id);
-                          }
-                        }}
+                        onClick={() => handleDeleteClick(chapter)}
                         title="Delete"
                       >
                         🗑️

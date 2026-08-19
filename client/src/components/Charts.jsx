@@ -13,6 +13,9 @@ import { formatDateShort } from '../utils/helpers';
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
 const Charts = ({ transactions, categories, activeChapter }) => {
+  // Responsive legend positioning
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
   // Build category map from fetched categories
   const categoryMap = {};
   categories.forEach((cat) => {
@@ -55,7 +58,7 @@ const Charts = ({ transactions, categories, activeChapter }) => {
     cutout: '65%',
     plugins: {
       legend: {
-        position: 'right',
+        position: isMobile ? 'bottom' : 'right',
         labels: {
           color: '#94a3b8',
           font: { family: 'Inter', size: 11 },

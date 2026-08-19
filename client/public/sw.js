@@ -1,21 +1,22 @@
-const CACHE_NAME = 'hisab-kitab-v1';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'hisab-kitab-v2';
+const SHELL_ASSETS = [
   '/',
-  '/index.html',
   '/manifest.json',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
 ];
 
-// Install event
+// Install event — cache app shell
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(SHELL_ASSETS);
     })
   );
   self.skipWaiting();
 });
 
-// Activate event
+// Activate event — clean old caches
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {
@@ -31,39 +32,67 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event (Network first for API calls, Cache first for static assets)
+// Fetch event
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const url = new URL(request.url);
 
-  // Don't cache API requests
-  if (request.url.includes('/api/')) {
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
+
+  // Don't cache API requests — let them fail naturally when offline
+  if (url.pathname.startsWith('/api/')) {
     return;
   }
 
+  // For navigation requests (SPA), always serve the app shell
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          // Cache the latest index.html
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put('/', responseClone);
+          });
+          return response;
+        })
+        .catch(() => {
+          // Offline — serve cached app shell
+          return caches.match('/');
+        })
+    );
+    return;
+  }
+
+  // For static assets — stale-while-revalidate strategy
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Fetch background update
-        fetch(request).then((networkResponse) => {
-          if (networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, networkResponse));
+      const fetchPromise = fetch(request)
+        .then((networkResponse) => {
+          // Only cache successful responses for same-origin
+          if (networkResponse.ok && url.origin === self.location.origin) {
+            const responseClone = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(request, responseClone);
+            });
           }
-        }).catch(() => {});
-        return cachedResponse;
-      }
-
-      return fetch(request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
-        }
-
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(request, responseToCache);
+        })
+        .catch(() => {
+          // Return cached if available, otherwise undefined (browser handles error)
+          return cachedResponse;
         });
 
-        return networkResponse;
-      });
+      // Return cached response immediately, then update in background
+      return cachedResponse || fetchPromise;
     })
   );
+});
+
+// Listen for update messages from the client
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
 });

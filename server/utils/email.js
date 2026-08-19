@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 require('dotenv').config();
 
 // Create reusable transporter using SMTP settings
@@ -13,6 +14,31 @@ const createTransporter = () => {
     },
   });
 };
+
+/**
+ * Generate a unique Message-ID header.
+ * Proper Message-IDs prevent spam filters from flagging messages as bot-generated.
+ */
+const generateMessageId = () => {
+  const domain = (process.env.SMTP_FROM || '').match(/@([^>]+)/)?.[1] || 'hisabkitab.app';
+  return `<${crypto.randomBytes(16).toString('hex')}@${domain}>`;
+};
+
+/**
+ * Build common mail headers that improve deliverability.
+ * - Message-ID: unique identifier prevents duplicate/bot flags
+ * - Reply-To: signals legitimacy to spam filters
+ * - X-Mailer: identifies the sending application
+ * - Precedence: marks transactional mail (not bulk/marketing)
+ * - List-Unsubscribe: even for transactional mail, having this header improves inbox placement
+ */
+const getCommonHeaders = () => ({
+  'Message-ID': generateMessageId(),
+  'Reply-To': process.env.SMTP_FROM || process.env.SMTP_USER,
+  'X-Mailer': 'HisabKitab Mailer',
+  'Precedence': 'bulk',
+  'X-Priority': '3',
+});
 
 // Shared HTML email template
 const emailTemplate = (title, bodyContent) => `
@@ -32,7 +58,7 @@ const emailTemplate = (title, bodyContent) => `
           <tr>
             <td style="padding:32px 32px 0; text-align:center;">
               <h1 style="margin:0; font-size:28px; font-weight:700; color:#ffffff; letter-spacing:-0.5px;">
-                📒 HisabKitab
+                HisabKitab
               </h1>
               <p style="margin:8px 0 0; font-size:13px; color:rgba(255,255,255,0.4); text-transform:uppercase; letter-spacing:1.5px;">
                 Expense Tracker
@@ -85,7 +111,7 @@ const sendVerificationEmail = async (to, name, token) => {
       <tr>
         <td align="center">
           <a href="${verifyUrl}" style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; border-radius:10px; letter-spacing:0.3px;">
-            ✉️ Verify Email Address
+            Verify Email Address
           </a>
         </td>
       </tr>
@@ -98,11 +124,26 @@ const sendVerificationEmail = async (to, name, token) => {
     </p>
   `;
 
+  // Plain-text alternative (critical for anti-spam)
+  const plainText = [
+    `Hi ${name},`,
+    '',
+    'Welcome to HisabKitab! Please verify your email address to get started.',
+    '',
+    `Verify your email: ${verifyUrl}`,
+    '',
+    'This link will expire in 24 hours.',
+    '',
+    '- HisabKitab Team',
+  ].join('\n');
+
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to,
     subject: 'Verify your HisabKitab account',
+    text: plainText,
     html: emailTemplate('Verify Email', body),
+    headers: getCommonHeaders(),
   });
 };
 
@@ -124,7 +165,7 @@ const sendPasswordResetEmail = async (to, name, token) => {
       <tr>
         <td align="center">
           <a href="${resetUrl}" style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #f59e0b, #ef4444); color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; border-radius:10px; letter-spacing:0.3px;">
-            🔒 Reset Password
+            Reset Password
           </a>
         </td>
       </tr>
@@ -137,11 +178,26 @@ const sendPasswordResetEmail = async (to, name, token) => {
     </p>
   `;
 
+  // Plain-text alternative (critical for anti-spam)
+  const plainText = [
+    `Hi ${name},`,
+    '',
+    'We received a request to reset your HisabKitab password.',
+    '',
+    `Reset your password: ${resetUrl}`,
+    '',
+    'This link will expire in 1 hour. If you didn\'t request this, you can safely ignore this email.',
+    '',
+    '- HisabKitab Team',
+  ].join('\n');
+
   await transporter.sendMail({
     from: process.env.SMTP_FROM,
     to,
     subject: 'Reset your HisabKitab password',
+    text: plainText,
     html: emailTemplate('Reset Password', body),
+    headers: getCommonHeaders(),
   });
 };
 
@@ -179,7 +235,7 @@ const smtpHealthCheck = async () => {
 
     const body = `
       <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
-        🟢 Server Started Successfully
+        Server Started Successfully
       </h2>
       <p style="margin:0 0 16px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
         HisabKitab backend has started and the SMTP mail system is working correctly.
@@ -211,11 +267,28 @@ const smtpHealthCheck = async () => {
       </p>
     `;
 
+    // Plain-text alternative
+    const plainText = [
+      'HisabKitab Server Health Check',
+      '',
+      'Your backend has started and the SMTP mail system is working correctly.',
+      '',
+      `Timestamp: ${now}`,
+      `SMTP Host: ${process.env.SMTP_HOST}:${process.env.SMTP_PORT}`,
+      `Environment: ${process.env.NODE_ENV || 'development'}`,
+      '',
+      'No action is needed.',
+      '',
+      '- HisabKitab System',
+    ].join('\n');
+
     await transporter.sendMail({
       from: process.env.SMTP_FROM,
       to: adminEmail,
-      subject: `🟢 HisabKitab Server Started — ${now}`,
+      subject: `HisabKitab Server Started - ${now}`,
+      text: plainText,
       html: emailTemplate('Server Health Check', body),
+      headers: getCommonHeaders(),
     });
 
     console.log(`📧 Health check email sent to ${adminEmail}`);

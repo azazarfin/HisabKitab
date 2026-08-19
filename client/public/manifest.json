@@ -1,6 +1,8 @@
 {
   "short_name": "HisabKitab",
   "name": "HisabKitab — Monthly Expense Tracker",
+  "id": "/",
+  "scope": "/",
   "icons": [
     {
       "src": "/icons/icon-192.png",
@@ -11,11 +13,18 @@
       "src": "/icons/icon-512.png",
       "type": "image/png",
       "sizes": "512x512"
+    },
+    {
+      "src": "/icons/icon-192-maskable.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "maskable"
     }
   ],
   "start_url": "/",
   "background_color": "#060b14",
   "theme_color": "#0d9668",
   "display": "standalone",
-  "orientation": "portrait"
+  "orientation": "portrait",
+  "categories": ["finance", "utilities"]
 }

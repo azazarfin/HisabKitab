@@ -26,9 +26,31 @@ if ('serviceWorker' in navigator) {
       .register('/sw.js')
       .then((registration) => {
         console.log('✅ SW registered:', registration.scope);
+
+        // Listen for updates
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (newWorker) {
+            newWorker.addEventListener('statechange', () => {
+              if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                // New service worker available — dispatch custom event for App to handle
+                window.dispatchEvent(new CustomEvent('sw-update-available', { detail: { registration } }));
+              }
+            });
+          }
+        });
       })
       .catch((error) => {
         console.log('❌ SW registration failed:', error);
       });
+  });
+
+  // Handle controller change (after skip waiting) — reload to get new version
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!refreshing) {
+      refreshing = true;
+      window.location.reload();
+    }
   });
 }
