@@ -153,6 +153,7 @@ router.post('/login', authLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        hasCompletedTour: user.hasCompletedTour || false,
       },
     });
   } catch (error) {
@@ -229,6 +230,7 @@ router.post('/google', authLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        hasCompletedTour: user.hasCompletedTour || false,
       },
     });
   } catch (error) {
@@ -417,6 +419,7 @@ router.post('/refresh', refreshLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        hasCompletedTour: user.hasCompletedTour || false,
       },
     });
   } catch (error) {
@@ -451,8 +454,32 @@ router.get('/me', authMiddleware, async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       provider: user.provider,
+      hasCompletedTour: user.hasCompletedTour || false,
     });
   } catch (error) {
+    res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// ─── PATCH /api/auth/tour-completed ────────────────────────
+router.patch('/tour-completed', authMiddleware, async (req, res) => {
+  try {
+    const { completed = true } = req.body;
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { hasCompletedTour: !!completed },
+      { new: true }
+    );
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.json({
+      message: 'Tour status updated.',
+      hasCompletedTour: user.hasCompletedTour,
+    });
+  } catch (error) {
+    console.error('Tour completed update error:', error);
     res.status(500).json({ message: 'Server error.' });
   }
 });

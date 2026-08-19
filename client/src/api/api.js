@@ -92,6 +92,19 @@ export const resendVerification = async (email) => {
   return data;
 };
 
+export const updateTourStatus = async (completed = true) => {
+  const res = await authFetch(`${API_BASE}/auth/tour-completed`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update tour status');
+  }
+  return res.json();
+};
+
 // ─── Chapters ───────────────────────────────────────────────
 export const fetchChapters = async () => {
   const res = await authFetch(`${API_BASE}/chapters`);

@@ -14,6 +14,7 @@ import RecurringManager from './components/RecurringManager';
 import SettingsPanel from './components/SettingsPanel';
 import ConfirmDialog from './components/ConfirmDialog';
 import BottomNav from './components/BottomNav';
+import GuidedTour from './components/GuidedTour';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
@@ -46,7 +47,7 @@ import {
 
 function App() {
   const navigate = useNavigate();
-  const { isAuthenticated, loading: authLoading, getAccessToken } = useAuth();
+  const { user, isAuthenticated, loading: authLoading, getAccessToken, completeTour } = useAuth();
 
   // Connect the API layer to the auth token getter
   useEffect(() => {
@@ -81,6 +82,7 @@ function App() {
   const [showPaymentMethodManager, setShowPaymentMethodManager] = useState(false);
   const [showRecurringManager, setShowRecurringManager] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTour, setShowTour] = useState(false);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -201,8 +203,31 @@ function App() {
       setPaymentMethods([]);
       setRecurringExpenses([]);
       setLoading(false);
+      setShowTour(false);
     }
   }, [isAuthenticated, loadInitialData]);
+
+  // Auto-launch Start Guide Tour for new users who haven't completed it
+  useEffect(() => {
+    if (isAuthenticated && user && user.hasCompletedTour === false && !loading) {
+      const timer = setTimeout(() => {
+        setShowTour(true);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, user?.hasCompletedTour, loading]);
+
+  const handleCompleteTour = async () => {
+    setShowTour(false);
+    if (user && !user.hasCompletedTour) {
+      await completeTour(true);
+    }
+  };
+
+  const handleStartTour = () => {
+    setShowSettings(false);
+    setShowTour(true);
+  };
 
   // ─── Load Transactions for Active Chapter ───────────────────
   const loadTransactions = useCallback(async () => {
@@ -613,6 +638,7 @@ function App() {
           onManageCategories={() => setShowCategoryManager(true)}
           onManagePaymentMethods={() => setShowPaymentMethodManager(true)}
           onManageRecurring={() => setShowRecurringManager(true)}
+          onStartTour={handleStartTour}
           onClose={() => setShowSettings(false)}
         />
       )}
@@ -664,6 +690,13 @@ function App() {
         variant={confirmDialog.variant}
         onConfirm={confirmDialog.onConfirm}
         onCancel={closeConfirm}
+      />
+
+      {/* Guided Start Tour */}
+      <GuidedTour
+        isActive={showTour}
+        onComplete={handleCompleteTour}
+        onSkip={handleCompleteTour}
       />
 
       {/* Toast Notifications */}

@@ -180,6 +180,27 @@ export const AuthProvider = ({ children }) => {
     return data;
   }, []);
 
+  // Complete tour (update server-side flag and local user state)
+  const completeTour = useCallback(async (completed = true) => {
+    try {
+      const token = accessTokenRef.current;
+      const res = await fetch('/api/auth/tour-completed', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        credentials: 'include',
+        body: JSON.stringify({ completed }),
+      });
+      if (res.ok) {
+        setUser((prev) => (prev ? { ...prev, hasCompletedTour: completed } : prev));
+      }
+    } catch (err) {
+      console.error('Failed to complete tour:', err);
+    }
+  }, []);
+
   const value = {
     user,
     loading,
@@ -188,6 +209,7 @@ export const AuthProvider = ({ children }) => {
     googleLogin,
     logout,
     resendVerification,
+    completeTour,
     getAccessToken,
     isAuthenticated: !!user,
   };

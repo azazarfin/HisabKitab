@@ -59,6 +59,10 @@ const userSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    hasCompletedTour: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

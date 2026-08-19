@@ -12,6 +12,7 @@ const SettingsPanel = ({
   onManageCategories,
   onManagePaymentMethods,
   onManageRecurring,
+  onStartTour,
   onClose,
 }) => {
   return (
@@ -79,6 +80,26 @@ const SettingsPanel = ({
                 <span className="settings-item__desc">Set up templates for frequent expenses</span>
               </div>
               <span className="settings-item__arrow">→</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="settings-section">
+          <h3 className="settings-section__title">💡 Help & Start Guide</h3>
+          <div className="settings-grid">
+            <button
+              className="settings-item settings-item--highlight"
+              onClick={() => {
+                onClose();
+                if (onStartTour) onStartTour();
+              }}
+            >
+              <span className="settings-item__icon">🎓</span>
+              <div className="settings-item__info">
+                <span className="settings-item__title">Start Guide Tour</span>
+                <span className="settings-item__desc">Replay the interactive walkthrough of all features</span>
+              </div>
+              <span className="settings-item__arrow">▶</span>
             </button>
           </div>
         </div>
