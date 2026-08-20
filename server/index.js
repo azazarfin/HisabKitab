@@ -40,6 +40,10 @@ app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 app.use(cookieParser());
 
+// Serve uploaded files (avatars, etc.)
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Health check endpoint (always accessible, before rate limiters/sanitizers)
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'HisabKitab API is running' });

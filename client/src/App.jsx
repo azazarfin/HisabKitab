@@ -12,6 +12,7 @@ import CategoryManager from './components/CategoryManager';
 import PaymentMethodManager from './components/PaymentMethodManager';
 import RecurringManager from './components/RecurringManager';
 import SettingsPanel from './components/SettingsPanel';
+import AccountManager from './components/AccountManager';
 import ConfirmDialog from './components/ConfirmDialog';
 import BottomNav from './components/BottomNav';
 import GuidedTour from './components/GuidedTour';
@@ -82,6 +83,7 @@ function App() {
   const [showPaymentMethodManager, setShowPaymentMethodManager] = useState(false);
   const [showRecurringManager, setShowRecurringManager] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showAccountManager, setShowAccountManager] = useState(false);
   const [showTour, setShowTour] = useState(false);
 
   // Confirm dialog state
@@ -115,7 +117,8 @@ function App() {
 
   // Body scroll lock when any modal is open
   const isAnyModalOpen = showTransactionForm || editingTransaction || showChapterManager ||
-    showCategoryManager || showPaymentMethodManager || showRecurringManager || showSettings || confirmDialog.isOpen;
+    showCategoryManager || showPaymentMethodManager || showRecurringManager || showSettings ||
+    showAccountManager || confirmDialog.isOpen;
 
   useEffect(() => {
     if (isAnyModalOpen) {
@@ -519,6 +522,7 @@ function App() {
                   onSelectChapter={handleSelectChapter}
                   onManageChapters={() => setShowChapterManager(true)}
                   onOpenSettings={() => setShowSettings(true)}
+                  onOpenAccountManager={() => setShowAccountManager(true)}
                 />
                 {loading ? (
                   <div className="empty-state">
@@ -565,6 +569,7 @@ function App() {
                   onSelectChapter={handleSelectChapter}
                   onManageChapters={() => setShowChapterManager(true)}
                   onOpenSettings={() => setShowSettings(true)}
+                  onOpenAccountManager={() => setShowAccountManager(true)}
                 />
                 <TransactionHistoryPage
                   transactions={transactions}
@@ -638,8 +643,17 @@ function App() {
           onManageCategories={() => setShowCategoryManager(true)}
           onManagePaymentMethods={() => setShowPaymentMethodManager(true)}
           onManageRecurring={() => setShowRecurringManager(true)}
+          onOpenAccountManager={() => setShowAccountManager(true)}
           onStartTour={handleStartTour}
           onClose={() => setShowSettings(false)}
+        />
+      )}
+
+      {/* Account Manager Modal */}
+      {showAccountManager && (
+        <AccountManager
+          onClose={() => setShowAccountManager(false)}
+          addToast={addToast}
         />
       )}
 

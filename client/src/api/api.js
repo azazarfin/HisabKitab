@@ -353,3 +353,73 @@ export const deleteRecurring = async (id) => {
   }
   return res.json();
 };
+
+// ─── Account Management ────────────────────────────────────
+export const updateProfile = async ({ name, avatar, removeAvatar }) => {
+  const formData = new FormData();
+  if (name !== undefined) formData.append('name', name);
+  if (avatar instanceof File) formData.append('avatar', avatar);
+  if (removeAvatar) formData.append('removeAvatar', 'true');
+
+  const res = await authFetch(`${API_BASE}/auth/profile`, {
+    method: 'PATCH',
+    body: formData,
+    // Don't set Content-Type — browser sets it with boundary for FormData
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to update profile');
+  }
+  return res.json();
+};
+
+export const changePassword = async ({ currentPassword, newPassword }) => {
+  const res = await authFetch(`${API_BASE}/auth/change-password`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to change password');
+  }
+  return res.json();
+};
+
+export const linkGoogle = async (credential) => {
+  const res = await authFetch(`${API_BASE}/auth/link-google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ credential }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to link Google account');
+  }
+  return res.json();
+};
+
+export const unlinkGoogle = async () => {
+  const res = await authFetch(`${API_BASE}/auth/unlink-google`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to unlink Google account');
+  }
+  return res.json();
+};
+
+export const deleteAccount = async (confirmText) => {
+  const res = await authFetch(`${API_BASE}/auth/account`, {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirmText }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || 'Failed to delete account');
+  }
+  return res.json();
+};

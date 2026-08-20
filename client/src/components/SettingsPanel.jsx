@@ -1,3 +1,5 @@
+import { useAuth } from '../context/AuthContext';
+
 const themes = [
   { id: 'charcoal', name: 'Dark', icon: '🌙' },
   { id: 'navy', name: 'Blue', icon: '🌊' },
@@ -12,9 +14,27 @@ const SettingsPanel = ({
   onManageCategories,
   onManagePaymentMethods,
   onManageRecurring,
+  onOpenAccountManager,
   onStartTour,
   onClose,
 }) => {
+  const { user, logout } = useAuth();
+
+  const handleLogout = async () => {
+    onClose();
+    await logout();
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    return name
+      .split(' ')
+      .map((w) => w[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal modal--settings" onClick={(e) => e.stopPropagation()}>
@@ -23,8 +43,64 @@ const SettingsPanel = ({
           <button className="modal__close" onClick={onClose}>✕</button>
         </div>
 
+        {/* Account Section */}
+        {user && (
+          <div className="settings-section">
+            <h3 className="settings-section__title">👤 Account & Profile</h3>
+            <div className="settings-user-card">
+              <div className="settings-user-avatar">
+                {user.avatar ? (
+                  <img
+                    src={user.avatar}
+                    alt={user.name}
+                    className="settings-user-avatar-img"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <span className="settings-user-avatar-initials">
+                    {getInitials(user.name)}
+                  </span>
+                )}
+              </div>
+              <div className="settings-user-info">
+                <span className="settings-user-name">{user.name}</span>
+                <span className="settings-user-email">{user.email}</span>
+              </div>
+            </div>
+
+            <div className="settings-grid">
+              <button
+                className="settings-item"
+                onClick={() => {
+                  onClose();
+                  if (onOpenAccountManager) onOpenAccountManager();
+                }}
+              >
+                <span className="settings-item__icon">⚙️</span>
+                <div className="settings-item__info">
+                  <span className="settings-item__title">Account Manager</span>
+                  <span className="settings-item__desc">Edit profile, change password, bind Google, delete account</span>
+                </div>
+                <span className="settings-item__arrow">→</span>
+              </button>
+
+              <button
+                className="settings-item settings-item--logout"
+                onClick={handleLogout}
+              >
+                <span className="settings-item__icon">🚪</span>
+                <div className="settings-item__info">
+                  <span className="settings-item__title">Log Out</span>
+                  <span className="settings-item__desc">Sign out of your account on this device</span>
+                </div>
+                <span className="settings-item__arrow">→</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="settings-section">
-          <h3 className="settings-section__title">Appearance & Theme</h3>
+          <h3 className="settings-section__title">🎨 Appearance & Theme</h3>
           <div className="theme-row">
             {themes.map((theme) => {
               const isActive = currentTheme === theme.id;
@@ -44,7 +120,7 @@ const SettingsPanel = ({
         </div>
 
         <div className="settings-section">
-          <h3 className="settings-section__title">⚙️ Data Management</h3>
+          <h3 className="settings-section__title">📂 Data Management</h3>
           <div className="settings-grid">
             <button className="settings-item" onClick={() => { onClose(); onManageChapters(); }}>
               <span className="settings-item__icon">📖</span>

@@ -201,6 +201,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Update user data (for profile edits)
+  const updateUser = useCallback((userData) => {
+    setUser((prev) => (prev ? { ...prev, ...userData } : prev));
+  }, []);
+
   const value = {
     user,
     loading,
@@ -211,6 +216,7 @@ export const AuthProvider = ({ children }) => {
     resendVerification,
     completeTour,
     getAccessToken,
+    updateUser,
     isAuthenticated: !!user,
   };
 

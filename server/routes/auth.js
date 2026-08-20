@@ -1,14 +1,49 @@
 const express = require('express');
 const router = express.Router();
 const crypto = require('crypto');
+const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
 const { OAuth2Client } = require('google-auth-library');
 const User = require('../models/User');
+const Chapter = require('../models/Chapter');
+const Transaction = require('../models/Transaction');
+const Category = require('../models/Category');
+const PaymentMethod = require('../models/PaymentMethod');
+const RecurringExpense = require('../models/RecurringExpense');
 const authMiddleware = require('../middleware/authMiddleware');
 const { authLimiter, refreshLimiter } = require('../middleware/rateLimiter');
 const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+// ─── Multer config for avatar uploads ───────────────────────
+const uploadsDir = path.join(__dirname, '..', 'uploads', 'avatars');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const avatarStorage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname).toLowerCase() || '.jpg';
+    cb(null, `${req.user.id}-${Date.now()}${ext}`);
+  },
+});
+
+const avatarUpload = multer({
+  storage: avatarStorage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+  fileFilter: (req, file, cb) => {
+    const allowed = /^image\/(jpeg|jpg|png|gif|webp)$/;
+    if (allowed.test(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only JPEG, PNG, GIF, and WebP images are allowed.'));
+    }
+  },
+});
 
 // ─── Helpers ────────────────────────────────────────────────
 const hashToken = (token) => {
@@ -153,6 +188,7 @@ router.post('/login', authLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        googleId: !!user.googleId,
         hasCompletedTour: user.hasCompletedTour || false,
       },
     });
@@ -230,6 +266,7 @@ router.post('/google', authLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        googleId: !!user.googleId,
         hasCompletedTour: user.hasCompletedTour || false,
       },
     });
@@ -419,6 +456,7 @@ router.post('/refresh', refreshLimiter, async (req, res) => {
         email: user.email,
         avatar: user.avatar,
         provider: user.provider,
+        googleId: !!user.googleId,
         hasCompletedTour: user.hasCompletedTour || false,
       },
     });
@@ -454,6 +492,7 @@ router.get('/me', authMiddleware, async (req, res) => {
       email: user.email,
       avatar: user.avatar,
       provider: user.provider,
+      googleId: !!user.googleId,
       hasCompletedTour: user.hasCompletedTour || false,
     });
   } catch (error) {
@@ -481,6 +520,272 @@ router.patch('/tour-completed', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Tour completed update error:', error);
     res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+// ─── PATCH /api/auth/profile ────────────────────────────────
+router.patch('/profile', authMiddleware, avatarUpload.single('avatar'), async (req, res) => {
+  try {
+    const { name, removeAvatar } = req.body;
+    const updates = {};
+
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim().length === 0 || name.length > 100) {
+        return res.status(400).json({ message: 'Valid name is required (max 100 characters).' });
+      }
+      updates.name = name.trim();
+    }
+
+    // If a file was uploaded, use its path as avatar
+    if (req.file) {
+      // Delete old avatar file if it was a local upload
+      const user = await User.findById(req.user.id);
+      if (user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
+        const oldPath = path.join(__dirname, '..', user.avatar);
+        fs.unlink(oldPath, () => {}); // best-effort cleanup
+      }
+      updates.avatar = `/uploads/avatars/${req.file.filename}`;
+    } else if (removeAvatar === 'true' || removeAvatar === true) {
+      // Remove avatar
+      const user = await User.findById(req.user.id);
+      if (user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
+        const oldPath = path.join(__dirname, '..', user.avatar);
+        fs.unlink(oldPath, () => {});
+      }
+      updates.avatar = '';
+    }
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ message: 'No valid fields to update.' });
+    }
+
+    const user = await User.findByIdAndUpdate(req.user.id, updates, { new: true });
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    res.json({
+      message: 'Profile updated.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: !!user.googleId,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
+  } catch (error) {
+    console.error('Profile update error:', error);
+    if (error.message && error.message.includes('Only')) {
+      return res.status(400).json({ message: error.message });
+    }
+    res.status(500).json({ message: 'Server error during profile update.' });
+  }
+});
+
+// ─── PATCH /api/auth/change-password ────────────────────────
+router.patch('/change-password', authMiddleware, async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 6) {
+      return res.status(400).json({ message: 'New password must be at least 6 characters.' });
+    }
+
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    // If user has a password (local or linked), verify current password
+    if (user.password) {
+      if (!currentPassword) {
+        return res.status(400).json({ message: 'Current password is required.' });
+      }
+      const isMatch = await user.comparePassword(currentPassword);
+      if (!isMatch) {
+        return res.status(401).json({ message: 'Current password is incorrect.' });
+      }
+    }
+
+    user.password = newPassword;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    // If Google-only user sets a password, also mark as local provider
+    if (user.provider === 'google' && !user.password) {
+      user.provider = 'local';
+    }
+    await user.save();
+
+    // Issue new tokens so user stays logged in
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      message: 'Password changed successfully.',
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: !!user.googleId,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json({ message: 'Server error during password change.' });
+  }
+});
+
+// ─── POST /api/auth/link-google ─────────────────────────────
+router.post('/link-google', authMiddleware, async (req, res) => {
+  try {
+    const { credential } = req.body;
+
+    if (!process.env.GOOGLE_CLIENT_ID) {
+      return res.status(500).json({ message: 'Google authentication is not configured.' });
+    }
+    if (!credential || typeof credential !== 'string') {
+      return res.status(400).json({ message: 'Google credential is required.' });
+    }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { sub: googleId, picture } = payload;
+
+    // Check if this Google account is already linked to another user
+    const existingGoogle = await User.findOne({ googleId });
+    if (existingGoogle && existingGoogle._id.toString() !== req.user.id) {
+      return res.status(409).json({ message: 'This Google account is already linked to another user.' });
+    }
+
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    user.googleId = googleId;
+    if (picture && !user.avatar) {
+      user.avatar = picture;
+    }
+    await user.save();
+
+    res.json({
+      message: 'Google account linked successfully.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: !!user.googleId,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
+  } catch (error) {
+    console.error('Link Google error:', error);
+    res.status(500).json({ message: 'Failed to link Google account.' });
+  }
+});
+
+// ─── POST /api/auth/unlink-google ───────────────────────────
+router.post('/unlink-google', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('+password');
+    if (!user) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (!user.googleId) {
+      return res.status(400).json({ message: 'No Google account is linked.' });
+    }
+
+    // Must have a password to unlink Google (otherwise they can't log in)
+    if (!user.password) {
+      return res.status(400).json({
+        message: 'You must set a password before unlinking Google. Use "Change Password" first.',
+      });
+    }
+
+    user.googleId = undefined;
+    if (user.provider === 'google') {
+      user.provider = 'local';
+    }
+    await user.save();
+
+    res.json({
+      message: 'Google account unlinked successfully.',
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: false,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
+  } catch (error) {
+    console.error('Unlink Google error:', error);
+    res.status(500).json({ message: 'Failed to unlink Google account.' });
+  }
+});
+
+// ─── DELETE /api/auth/account ───────────────────────────────
+router.delete('/account', authMiddleware, async (req, res) => {
+  try {
+    const { confirmText } = req.body;
+
+    if (confirmText !== 'I am sure to delete my account') {
+      return res.status(400).json({
+        message: 'Please type the confirmation text exactly: "I am sure to delete my account"',
+      });
+    }
+
+    const userId = req.user.id;
+
+    // Cascading delete of all user data
+    const chapters = await Chapter.find({ userId });
+    const chapterIds = chapters.map((c) => c._id);
+
+    await Promise.all([
+      Transaction.deleteMany({ chapterId: { $in: chapterIds } }),
+      Chapter.deleteMany({ userId }),
+      Category.deleteMany({ userId }),
+      PaymentMethod.deleteMany({ userId }),
+      RecurringExpense.deleteMany({ userId }),
+    ]);
+
+    // Delete avatar file if local
+    const user = await User.findById(userId);
+    if (user && user.avatar && user.avatar.startsWith('/uploads/avatars/')) {
+      const avatarPath = path.join(__dirname, '..', user.avatar);
+      fs.unlink(avatarPath, () => {});
+    }
+
+    // Delete the user
+    await User.findByIdAndDelete(userId);
+
+    // Clear refresh cookie
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+      path: '/',
+    });
+
+    res.json({ message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json({ message: 'Server error during account deletion.' });
   }
 });
 
