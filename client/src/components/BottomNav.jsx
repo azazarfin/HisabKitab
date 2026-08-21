@@ -50,6 +50,7 @@ const BottomNav = ({ onAddTransaction, onOpenSettings, activeChapter, chapters, 
       <nav className="bottom-nav" id="bottom-nav">
         <button
           type="button"
+          id="nav-tab-home"
           className={`bottom-nav__item ${isActive('/') ? 'bottom-nav__item--active' : ''}`}
           onClick={() => navigate('/')}
         >
@@ -59,6 +60,7 @@ const BottomNav = ({ onAddTransaction, onOpenSettings, activeChapter, chapters, 
 
         <button
           type="button"
+          id="nav-tab-history"
           className={`bottom-nav__item ${isActive('/history') ? 'bottom-nav__item--active' : ''}`}
           onClick={() => navigate('/history')}
         >
@@ -67,7 +69,7 @@ const BottomNav = ({ onAddTransaction, onOpenSettings, activeChapter, chapters, 
         </button>
 
         {/* Center FAB */}
-        <div className="bottom-nav__fab-wrapper">
+        <div className="bottom-nav__fab-wrapper" id="nav-tab-fab">
           <button
             type="button"
             className={`bottom-nav__fab ${showFabMenu ? 'bottom-nav__fab--active' : ''}`}
@@ -80,6 +82,7 @@ const BottomNav = ({ onAddTransaction, onOpenSettings, activeChapter, chapters, 
 
         <button
           type="button"
+          id="nav-tab-settings"
           className="bottom-nav__item"
           onClick={onOpenSettings}
         >
@@ -87,7 +90,7 @@ const BottomNav = ({ onAddTransaction, onOpenSettings, activeChapter, chapters, 
           <span className="bottom-nav__label">Settings</span>
         </button>
 
-        <div className="bottom-nav__item" style={{ position: 'relative' }}>
+        <div className="bottom-nav__item" id="nav-tab-chapter" style={{ position: 'relative' }}>
           <span className="bottom-nav__icon">📖</span>
           <span className="bottom-nav__label" style={{ maxWidth: '45px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {activeChapter ? activeChapter.name : 'Chapter'}

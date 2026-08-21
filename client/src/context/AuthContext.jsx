@@ -206,6 +206,50 @@ export const AuthProvider = ({ children }) => {
     setUser((prev) => (prev ? { ...prev, ...userData } : prev));
   }, []);
 
+  // Request Bind OTP
+  const requestBindOtp = useCallback(async (email) => {
+    const res = await fetch('/api/auth/request-bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, ...data };
+    return data;
+  }, []);
+
+  // Verify Bind and login
+  const bindAccount = useCallback(async (email, otp, password) => {
+    const res = await fetch('/api/auth/verify-bind', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, ...data };
+
+    accessTokenRef.current = data.accessToken;
+    setUser(data.user);
+    scheduleRefresh();
+    return data;
+  }, [scheduleRefresh]);
+
+  // Verify Email and login
+  const verifyEmail = useCallback(async (email, otp) => {
+    const res = await fetch('/api/auth/verify-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, otp }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw { status: res.status, ...data };
+
+    accessTokenRef.current = data.accessToken;
+    setUser(data.user);
+    scheduleRefresh();
+    return data;
+  }, [scheduleRefresh]);
+
   const value = {
     user,
     loading,
@@ -214,9 +258,12 @@ export const AuthProvider = ({ children }) => {
     googleLogin,
     logout,
     resendVerification,
+    verifyEmail,
     completeTour,
     getAccessToken,
     updateUser,
+    requestBindOtp,
+    bindAccount,
     isAuthenticated: !!user,
   };
 

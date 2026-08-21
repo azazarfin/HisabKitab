@@ -16,11 +16,17 @@ import AccountManager from './components/AccountManager';
 import ConfirmDialog from './components/ConfirmDialog';
 import BottomNav from './components/BottomNav';
 import GuidedTour from './components/GuidedTour';
+import {
+  tourDemoChapter,
+  tourDemoChapters,
+  tourDemoCategories,
+  tourDemoPaymentMethods,
+  tourDemoRecurring,
+  tourDemoTransactions,
+} from './data/tourDemoData';
 import LoginPage from './components/auth/LoginPage';
 import RegisterPage from './components/auth/RegisterPage';
 import ForgotPasswordPage from './components/auth/ForgotPasswordPage';
-import ResetPasswordPage from './components/auth/ResetPasswordPage';
-import VerifyEmailPage from './components/auth/VerifyEmailPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import {
   fetchChapters,
@@ -85,6 +91,7 @@ function App() {
   const [showSettings, setShowSettings] = useState(false);
   const [showAccountManager, setShowAccountManager] = useState(false);
   const [showTour, setShowTour] = useState(false);
+  const [tourStepIndex, setTourStepIndex] = useState(0);
 
   // Confirm dialog state
   const [confirmDialog, setConfirmDialog] = useState({
@@ -220,15 +227,27 @@ function App() {
     }
   }, [isAuthenticated, user?.hasCompletedTour, loading]);
 
-  const handleCompleteTour = async () => {
+  const handleCompleteTour = async (options = {}) => {
     setShowTour(false);
+    setTourStepIndex(0);
     if (user && !user.hasCompletedTour) {
       await completeTour(true);
+    }
+    if (options?.openChapterManager) {
+      setTimeout(() => {
+        setShowChapterManager(true);
+      }, 150);
     }
   };
 
   const handleStartTour = () => {
     setShowSettings(false);
+    setShowChapterManager(false);
+    setShowCategoryManager(false);
+    setShowPaymentMethodManager(false);
+    setShowRecurringManager(false);
+    navigate('/');
+    setTourStepIndex(0);
     setShowTour(true);
   };
 
@@ -507,54 +526,64 @@ function App() {
           path="/forgot-password"
           element={isAuthenticated ? <Navigate to="/" replace /> : <ForgotPasswordPage />}
         />
-        <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
-        <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+
 
         {/* Protected App Routes */}
         <Route
           path="/"
           element={
             <ProtectedRoute>
-              <div className="app-container">
-                <Header
-                  activeChapter={activeChapter}
-                  chapters={chapters}
-                  onSelectChapter={handleSelectChapter}
-                  onManageChapters={() => setShowChapterManager(true)}
-                  onOpenSettings={() => setShowSettings(true)}
-                  onOpenAccountManager={() => setShowAccountManager(true)}
-                />
-                {loading ? (
-                  <div className="empty-state">
-                    <span className="empty-state__icon">⏳</span>
-                    <p className="empty-state__text">Loading data...</p>
+              {(() => {
+                const isTourDemo = showTour && (!activeChapter || chapters.length === 0);
+                const displayChapters = isTourDemo ? [tourDemoChapter] : chapters;
+                const displayActiveChapter = isTourDemo ? tourDemoChapter : activeChapter;
+                const displayCategories = (showTour && categories.length === 0) ? tourDemoCategories : categories;
+                const displayPaymentMethods = (showTour && paymentMethods.length === 0) ? tourDemoPaymentMethods : paymentMethods;
+                const displayTransactions = (showTour && transactions.length === 0) ? tourDemoTransactions : transactions;
+
+                return (
+                  <div className="app-container">
+                    <Header
+                      activeChapter={displayActiveChapter}
+                      chapters={displayChapters}
+                      onSelectChapter={handleSelectChapter}
+                      onManageChapters={() => setShowChapterManager(true)}
+                      onOpenSettings={() => setShowSettings(true)}
+                      onOpenAccountManager={() => setShowAccountManager(true)}
+                    />
+                    {loading ? (
+                      <div className="empty-state">
+                        <span className="empty-state__icon">⏳</span>
+                        <p className="empty-state__text">Loading data...</p>
+                      </div>
+                    ) : !displayActiveChapter ? (
+                      <div className="empty-state">
+                        <span className="empty-state__icon">📖</span>
+                        <p className="empty-state__text">No chapters yet. Create your first tracking chapter to get started!</p>
+                        <button
+                          className="btn btn--primary"
+                          onClick={() => setShowChapterManager(true)}
+                        >
+                          ➕ Create First Chapter
+                        </button>
+                      </div>
+                    ) : (
+                      <Dashboard
+                        transactions={displayTransactions}
+                        categories={displayCategories}
+                        paymentMethods={displayPaymentMethods}
+                        activeChapter={displayActiveChapter}
+                        onAddBalance={() => handleOpenAddTransaction('balance')}
+                        onAddExpense={() => handleOpenAddTransaction('expense')}
+                        onAddTransaction={(type) => handleOpenAddTransaction(type)}
+                        onViewAllTransactions={() => navigate('/history')}
+                        onEditTransaction={(txn) => setEditingTransaction(txn)}
+                        onDeleteTransaction={handleDeleteTransaction}
+                      />
+                    )}
                   </div>
-                ) : !activeChapter ? (
-                  <div className="empty-state">
-                    <span className="empty-state__icon">📖</span>
-                    <p className="empty-state__text">No chapters yet. Create your first tracking chapter to get started!</p>
-                    <button
-                      className="btn btn--primary"
-                      onClick={() => setShowChapterManager(true)}
-                    >
-                      ➕ Create First Chapter
-                    </button>
-                  </div>
-                ) : (
-                  <Dashboard
-                    transactions={transactions}
-                    categories={categories}
-                    paymentMethods={paymentMethods}
-                    activeChapter={activeChapter}
-                    onAddBalance={() => handleOpenAddTransaction('balance')}
-                    onAddExpense={() => handleOpenAddTransaction('expense')}
-                    onAddTransaction={(type) => handleOpenAddTransaction(type)}
-                    onViewAllTransactions={() => navigate('/history')}
-                    onEditTransaction={(txn) => setEditingTransaction(txn)}
-                    onDeleteTransaction={handleDeleteTransaction}
-                  />
-                )}
-              </div>
+                );
+              })()}
             </ProtectedRoute>
           }
         />
@@ -590,8 +619,8 @@ function App() {
         <BottomNav
           onAddTransaction={handleOpenAddTransaction}
           onOpenSettings={() => setShowSettings(true)}
-          activeChapter={activeChapter}
-          chapters={chapters}
+          activeChapter={showTour && !activeChapter ? tourDemoChapter : activeChapter}
+          chapters={showTour && chapters.length === 0 ? [tourDemoChapter] : chapters}
           onSelectChapter={handleSelectChapter}
         />
       )}
@@ -622,20 +651,66 @@ function App() {
       )}
 
       {/* Chapter Manager Modal */}
-      {showChapterManager && (
+      {(showChapterManager || (showTour && tourStepIndex === 1)) && (
         <ChapterManager
-          chapters={chapters}
-          onCreateChapter={handleCreateChapter}
-          onUpdateChapter={handleUpdateChapter}
-          onDeleteChapter={handleDeleteChapter}
-          onImport={handleImportChapter}
-          onClose={() => setShowChapterManager(false)}
+          chapters={showTour ? tourDemoChapters : chapters}
+          onCreateChapter={showTour ? () => {} : handleCreateChapter}
+          onUpdateChapter={showTour ? () => {} : handleUpdateChapter}
+          onDeleteChapter={showTour ? () => {} : handleDeleteChapter}
+          onImport={showTour ? () => {} : handleImportChapter}
+          onClose={() => {
+            if (!showTour) setShowChapterManager(false);
+          }}
           showConfirm={showConfirm}
         />
       )}
 
+      {/* Category Manager Modal */}
+      {(showCategoryManager || (showTour && tourStepIndex === 2)) && (
+        <CategoryManager
+          categories={showTour ? tourDemoCategories : categories}
+          onCreateCategory={showTour ? () => {} : handleCreateCategory}
+          onUpdateCategory={showTour ? () => {} : handleUpdateCategory}
+          onDeleteCategory={showTour ? () => {} : handleDeleteCategory}
+          onClose={() => {
+            if (!showTour) setShowCategoryManager(false);
+          }}
+          showConfirm={showConfirm}
+        />
+      )}
+
+      {/* Payment Method Manager Modal */}
+      {(showPaymentMethodManager || (showTour && tourStepIndex === 3)) && (
+        <PaymentMethodManager
+          paymentMethods={showTour ? tourDemoPaymentMethods : paymentMethods}
+          onCreateMethod={showTour ? () => {} : handleCreatePaymentMethod}
+          onUpdateMethod={showTour ? () => {} : handleUpdatePaymentMethod}
+          onDeleteMethod={showTour ? () => {} : handleDeletePaymentMethod}
+          onClose={() => {
+            if (!showTour) setShowPaymentMethodManager(false);
+          }}
+          showConfirm={showConfirm}
+        />
+      )}
+
+      {/* Recurring Expense Manager Modal */}
+      {(showRecurringManager || (showTour && tourStepIndex === 4)) && (
+        <RecurringManager
+          recurringExpenses={showTour ? tourDemoRecurring : recurringExpenses}
+          categories={showTour ? tourDemoCategories : categories}
+          onCreateRecurring={showTour ? () => {} : handleCreateRecurring}
+          onUpdateRecurring={showTour ? () => {} : handleUpdateRecurring}
+          onDeleteRecurring={showTour ? () => {} : handleDeleteRecurring}
+          onClose={() => {
+            if (!showTour) setShowRecurringManager(false);
+          }}
+          showConfirm={showConfirm}
+          addToast={addToast}
+        />
+      )}
+
       {/* Settings Panel */}
-      {showSettings && (
+      {(showSettings || (showTour && tourStepIndex === 5)) && (
         <SettingsPanel
           currentTheme={theme}
           onSelectTheme={setTheme}
@@ -645,7 +720,9 @@ function App() {
           onManageRecurring={() => setShowRecurringManager(true)}
           onOpenAccountManager={() => setShowAccountManager(true)}
           onStartTour={handleStartTour}
-          onClose={() => setShowSettings(false)}
+          onClose={() => {
+            if (!showTour) setShowSettings(false);
+          }}
         />
       )}
 
@@ -653,44 +730,6 @@ function App() {
       {showAccountManager && (
         <AccountManager
           onClose={() => setShowAccountManager(false)}
-          addToast={addToast}
-        />
-      )}
-
-      {/* Category Manager Modal */}
-      {showCategoryManager && (
-        <CategoryManager
-          categories={categories}
-          onCreateCategory={handleCreateCategory}
-          onUpdateCategory={handleUpdateCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onClose={() => setShowCategoryManager(false)}
-          showConfirm={showConfirm}
-        />
-      )}
-
-      {/* Payment Method Manager Modal */}
-      {showPaymentMethodManager && (
-        <PaymentMethodManager
-          paymentMethods={paymentMethods}
-          onCreateMethod={handleCreatePaymentMethod}
-          onUpdateMethod={handleUpdatePaymentMethod}
-          onDeleteMethod={handleDeletePaymentMethod}
-          onClose={() => setShowPaymentMethodManager(false)}
-          showConfirm={showConfirm}
-        />
-      )}
-
-      {/* Recurring Expense Manager Modal */}
-      {showRecurringManager && (
-        <RecurringManager
-          recurringExpenses={recurringExpenses}
-          categories={categories}
-          onCreateRecurring={handleCreateRecurring}
-          onUpdateRecurring={handleUpdateRecurring}
-          onDeleteRecurring={handleDeleteRecurring}
-          onClose={() => setShowRecurringManager(false)}
-          showConfirm={showConfirm}
           addToast={addToast}
         />
       )}
@@ -709,6 +748,8 @@ function App() {
       {/* Guided Start Tour */}
       <GuidedTour
         isActive={showTour}
+        currentStepIndex={tourStepIndex}
+        onStepChange={(idx) => setTourStepIndex(idx)}
         onComplete={handleCompleteTour}
         onSkip={handleCompleteTour}
       />

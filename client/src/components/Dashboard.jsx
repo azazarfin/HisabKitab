@@ -67,7 +67,7 @@ const Dashboard = ({
         Showing for <span className="gradient-text font-bold">'{activeChapter?.name || 'All Chapters'}'</span>
       </div>
       {/* Summary Cards */}
-      <div className="summary-grid">
+      <div className="summary-grid" id="dashboard-summary-grid">
         <div className="glass-card summary-card summary-card--balance animate-fade-in">
           <p className="summary-card__label">Total Balance</p>
           <p className="summary-card__value">{formatCurrency(totalBalance)}</p>
@@ -88,7 +88,7 @@ const Dashboard = ({
 
       {/* Balance Progress Bar */}
       {totalBalance > 0 && (
-        <div className="glass-card budget-bar animate-fade-in">
+        <div className="glass-card budget-bar animate-fade-in" id="dashboard-budget-bar">
           <div className="budget-bar__header">
             <span className="budget-bar__label">
               Balance Usage — {formatCurrency(totalSpent)} of {formatCurrency(totalBalance)}
@@ -111,7 +111,7 @@ const Dashboard = ({
 
       {/* Add Balance & Add Expense Action Banner */}
       {(onAddBalance || onAddExpense || onAddTransaction) && (
-        <div className="add-transaction-banner animate-fade-in">
+        <div className="add-transaction-banner animate-fade-in" id="dashboard-action-banner">
           <button
             className="btn btn--add-action-lg btn--add-balance-lg"
             onClick={() => (onAddBalance ? onAddBalance() : onAddTransaction?.('balance'))}
@@ -128,11 +128,13 @@ const Dashboard = ({
       )}
 
       {/* Charts */}
-      <Charts
-        transactions={expenseTransactions}
-        categories={categories}
-        activeChapter={activeChapter}
-      />
+      <div id="dashboard-charts">
+        <Charts
+          transactions={expenseTransactions}
+          categories={categories}
+          activeChapter={activeChapter}
+        />
+      </div>
 
       {/* Top Categories */}
       {categoryTotals.length > 0 && (

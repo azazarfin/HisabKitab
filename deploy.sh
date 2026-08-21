@@ -47,11 +47,11 @@ main() {
 
   # 2. Build images first (zero downtime rebuild)
   log "🔨 Building container images..."
-  $COMPOSE_CMD build 2>&1 | tee -a "$LOG_FILE"
+  $COMPOSE_CMD build --no-cache 2>&1 | tee -a "$LOG_FILE"
 
   # 3. Apply updates with minimal restart time
   log "🔄 Starting updated containers..."
-  $COMPOSE_CMD up -d --remove-orphans 2>&1 | tee -a "$LOG_FILE"
+  $COMPOSE_CMD up -d --force-recreate --remove-orphans 2>&1 | tee -a "$LOG_FILE"
 
   # 4. Cleanup old images
   log "🧹 Pruning dangling images..."

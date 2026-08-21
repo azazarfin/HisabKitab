@@ -4,6 +4,18 @@ require('dotenv').config();
 
 // Create reusable transporter using SMTP settings
 const createTransporter = () => {
+  const isGmail = process.env.SMTP_HOST === 'smtp.gmail.com';
+  
+  if (isGmail) {
+    return nodemailer.createTransport({
+      service: 'gmail',
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+  }
+
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST,
     port: parseInt(process.env.SMTP_PORT, 10) || 587,
@@ -15,30 +27,25 @@ const createTransporter = () => {
   });
 };
 
-/**
- * Generate a unique Message-ID header.
- * Proper Message-IDs prevent spam filters from flagging messages as bot-generated.
- */
-const generateMessageId = () => {
-  const domain = (process.env.SMTP_FROM || '').match(/@([^>]+)/)?.[1] || 'hisabkitab.app';
-  return `<${crypto.randomBytes(16).toString('hex')}@${domain}>`;
-};
+
 
 /**
  * Build common mail headers that improve deliverability.
- * - Message-ID: unique identifier prevents duplicate/bot flags
  * - Reply-To: signals legitimacy to spam filters
- * - X-Mailer: identifies the sending application
- * - Precedence: marks transactional mail (not bulk/marketing)
- * - List-Unsubscribe: even for transactional mail, having this header improves inbox placement
  */
 const getCommonHeaders = () => ({
-  'Message-ID': generateMessageId(),
   'Reply-To': process.env.SMTP_FROM || process.env.SMTP_USER,
-  'X-Mailer': 'HisabKitab Mailer',
-  'Precedence': 'bulk',
-  'X-Priority': '3',
 });
+
+/**
+ * Format the 'From' address to include the sender name, which improves deliverability.
+ */
+const getFromAddress = () => {
+  const fromEnv = process.env.SMTP_FROM || process.env.SMTP_USER;
+  if (!fromEnv) return '"HisabKitab" <no-reply@hisabkitab.app>';
+  if (fromEnv.includes('<')) return fromEnv;
+  return `"HisabKitab" <${fromEnv}>`;
+};
 
 // Shared HTML email template
 const emailTemplate = (title, bodyContent) => `
@@ -100,31 +107,27 @@ const getClientBaseUrl = () => {
 /**
  * Send email verification link
  */
-const sendVerificationEmail = async (to, name, token) => {
+const sendVerificationEmail = async (to, name, otp) => {
   const transporter = createTransporter();
-  const verifyUrl = `${getClientBaseUrl()}/verify-email/${token}`;
 
   const body = `
     <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
       Verify Your Email
     </h2>
     <p style="margin:0 0 24px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
-      Hi <strong style="color:#ffffff;">${name}</strong>, welcome to HisabKitab! Please verify your email address to get started.
+      Hi <strong style="color:#ffffff;">${name}</strong>, welcome to HisabKitab! Please use the following 6-digit verification code to activate your account.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td align="center">
-          <a href="${verifyUrl}" style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; border-radius:10px; letter-spacing:0.3px;">
-            Verify Email Address
-          </a>
+          <div style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #6366f1, #8b5cf6); color:#ffffff; font-size:24px; font-weight:700; border-radius:10px; letter-spacing:4px;">
+            ${otp}
+          </div>
         </td>
       </tr>
     </table>
     <p style="margin:24px 0 0; font-size:13px; color:rgba(255,255,255,0.35); line-height:1.5;">
-      This link will expire in <strong style="color:rgba(255,255,255,0.5);">24 hours</strong>. If the button doesn't work, copy and paste this URL into your browser:
-    </p>
-    <p style="margin:8px 0 0; font-size:12px; color:rgba(99,102,241,0.7); word-break:break-all;">
-      ${verifyUrl}
+      This code will expire in <strong style="color:rgba(255,255,255,0.5);">10 minutes</strong>.
     </p>
   `;
 
@@ -132,21 +135,21 @@ const sendVerificationEmail = async (to, name, token) => {
   const plainText = [
     `Hi ${name},`,
     '',
-    'Welcome to HisabKitab! Please verify your email address to get started.',
+    'Welcome to HisabKitab! Please use the following 6-digit verification code to activate your account.',
     '',
-    `Verify your email: ${verifyUrl}`,
+    `Code: ${otp}`,
     '',
-    'This link will expire in 24 hours.',
+    'This code will expire in 10 minutes.',
     '',
     '- HisabKitab Team',
   ].join('\n');
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+    from: getFromAddress(),
     to,
     subject: 'Verify your HisabKitab account',
     text: plainText,
-    html: emailTemplate('Verify Email', body),
+    html: `<p style="font-family: sans-serif; font-size: 14px; white-space: pre-wrap;">${plainText}</p>`,
     headers: getCommonHeaders(),
   });
 };
@@ -154,31 +157,27 @@ const sendVerificationEmail = async (to, name, token) => {
 /**
  * Send password reset link
  */
-const sendPasswordResetEmail = async (to, name, token) => {
+const sendPasswordResetEmail = async (to, name, otp) => {
   const transporter = createTransporter();
-  const resetUrl = `${getClientBaseUrl()}/reset-password/${token}`;
 
   const body = `
     <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
       Reset Your Password
     </h2>
     <p style="margin:0 0 24px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
-      Hi <strong style="color:#ffffff;">${name}</strong>, we received a request to reset your password. Click the button below to choose a new one.
+      Hi <strong style="color:#ffffff;">${name}</strong>, we received a request to reset your password. Please use the following 6-digit verification code to choose a new password.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0">
       <tr>
         <td align="center">
-          <a href="${resetUrl}" style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #f59e0b, #ef4444); color:#ffffff; text-decoration:none; font-size:15px; font-weight:600; border-radius:10px; letter-spacing:0.3px;">
-            Reset Password
-          </a>
+          <div style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #f59e0b, #ef4444); color:#ffffff; font-size:24px; font-weight:700; border-radius:10px; letter-spacing:4px;">
+            ${otp}
+          </div>
         </td>
       </tr>
     </table>
     <p style="margin:24px 0 0; font-size:13px; color:rgba(255,255,255,0.35); line-height:1.5;">
-      This link will expire in <strong style="color:rgba(255,255,255,0.5);">1 hour</strong>. If you didn't request a password reset, you can ignore this email.
-    </p>
-    <p style="margin:8px 0 0; font-size:12px; color:rgba(99,102,241,0.7); word-break:break-all;">
-      ${resetUrl}
+      This code will expire in <strong style="color:rgba(255,255,255,0.5);">10 minutes</strong>. If you didn't request a password reset, you can ignore this email.
     </p>
   `;
 
@@ -186,21 +185,70 @@ const sendPasswordResetEmail = async (to, name, token) => {
   const plainText = [
     `Hi ${name},`,
     '',
-    'We received a request to reset your HisabKitab password.',
+    'We received a request to reset your HisabKitab password. Please use the following 6-digit verification code to choose a new password.',
     '',
-    `Reset your password: ${resetUrl}`,
+    `Code: ${otp}`,
     '',
-    'This link will expire in 1 hour. If you didn\'t request this, you can safely ignore this email.',
+    'This code will expire in 10 minutes. If you didn\'t request this, you can safely ignore this email.',
     '',
     '- HisabKitab Team',
   ].join('\n');
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+    from: getFromAddress(),
     to,
     subject: 'Reset your HisabKitab password',
     text: plainText,
-    html: emailTemplate('Reset Password', body),
+    html: `<p style="font-family: sans-serif; font-size: 14px; white-space: pre-wrap;">${plainText}</p>`,
+    headers: getCommonHeaders(),
+  });
+};
+
+/**
+ * Send 6-digit OTP for account binding
+ */
+const sendBindOtpEmail = async (to, name, otp) => {
+  const transporter = createTransporter();
+
+  const body = `
+    <h2 style="margin:0 0 12px; font-size:20px; font-weight:600; color:#ffffff;">
+      Bind Your Account
+    </h2>
+    <p style="margin:0 0 24px; font-size:15px; color:rgba(255,255,255,0.65); line-height:1.6;">
+      Hi <strong style="color:#ffffff;">${name}</strong>, please use the following 6-digit verification code to bind your new password to this account.
+    </p>
+    <table width="100%" cellpadding="0" cellspacing="0">
+      <tr>
+        <td align="center">
+          <div style="display:inline-block; padding:14px 36px; background:linear-gradient(135deg, #10b981, #059669); color:#ffffff; font-size:24px; font-weight:700; border-radius:10px; letter-spacing:4px;">
+            ${otp}
+          </div>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:24px 0 0; font-size:13px; color:rgba(255,255,255,0.35); line-height:1.5;">
+      This code will expire in <strong style="color:rgba(255,255,255,0.5);">10 minutes</strong>. If you didn't request this, you can ignore this email.
+    </p>
+  `;
+
+  const plainText = [
+    `Hi ${name},`,
+    '',
+    'Please use the following 6-digit verification code to bind your new password to this account:',
+    '',
+    `Code: ${otp}`,
+    '',
+    'This code will expire in 10 minutes. If you didn\'t request this, you can safely ignore this email.',
+    '',
+    '- HisabKitab Team',
+  ].join('\n');
+
+  await transporter.sendMail({
+    from: getFromAddress(),
+    to,
+    subject: 'Your HisabKitab Verification Code',
+    text: plainText,
+    html: `<p style="font-family: sans-serif; font-size: 14px; white-space: pre-wrap;">${plainText}</p>`,
     headers: getCommonHeaders(),
   });
 };
@@ -287,7 +335,7 @@ const smtpHealthCheck = async () => {
       ].join('\n');
 
       await transporter.sendMail({
-        from: process.env.SMTP_FROM,
+        from: getFromAddress(),
         to: adminEmail,
         subject: `HisabKitab Server Started - ${now}`,
         text: plainText,
@@ -305,4 +353,4 @@ const smtpHealthCheck = async () => {
   return { ok: true };
 };
 
-module.exports = { sendVerificationEmail, sendPasswordResetEmail, smtpHealthCheck };
+module.exports = { sendVerificationEmail, sendPasswordResetEmail, sendBindOtpEmail, smtpHealthCheck };

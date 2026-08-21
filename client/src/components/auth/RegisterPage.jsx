@@ -4,7 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { GoogleLogin } from '@react-oauth/google';
 
 export default function RegisterPage() {
-  const { register, googleLogin, resendVerification } = useAuth();
+  const { register, googleLogin, resendVerification, requestBindOtp, bindAccount, verifyEmail } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -12,6 +12,13 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [verifyOtp, setVerifyOtp] = useState('');
+
+  // Binding states
+  const [bindPrompt, setBindPrompt] = useState(false);
+  const [bindProvider, setBindProvider] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otp, setOtp] = useState('');
   
   // Resend state
   const [countdown, setCountdown] = useState(60);
@@ -41,6 +48,20 @@ export default function RegisterPage() {
       setError(err.message || 'Failed to resend email.');
     } finally {
       setResendLoading(false);
+    }
+  };
+
+  const handleVerifyEmail = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await verifyEmail(email, verifyOtp);
+      // Successfully verified and logged in. Router handles redirect.
+    } catch (err) {
+      setError(err.message || 'Verification failed.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -77,7 +98,40 @@ export default function RegisterPage() {
       setSuccess(true);
       setCountdown(60); // Start 1 min countdown when successful
     } catch (err) {
-      setError(err.message || 'Registration failed.');
+      if (err.requiresBinding) {
+        setBindPrompt(true);
+        setBindProvider(err.provider);
+      } else {
+        setError(err.message || 'Registration failed.');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRequestBind = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      await requestBindOtp(email);
+      setOtpSent(true);
+      setBindPrompt(false);
+    } catch (err) {
+      setError(err.message || 'Failed to send verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyBind = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      await bindAccount(email, otp, password);
+      // Automatic redirect on successful login
+    } catch (err) {
+      setError(err.message || 'Verification failed.');
     } finally {
       setLoading(false);
     }
@@ -95,6 +149,106 @@ export default function RegisterPage() {
     }
   };
 
+  if (bindPrompt) {
+    return (
+      <div className="auth-page">
+        <div className="auth-page__bg-orb auth-page__bg-orb--1" />
+        <div className="auth-page__bg-orb auth-page__bg-orb--2" />
+        <div className="auth-card">
+          <div className="auth-card__header">
+            <span className="auth-card__logo">🔗</span>
+            <h1 className="auth-card__title">Account Exists</h1>
+            <p className="auth-card__subtitle">
+              This email is already registered{bindProvider === 'google' ? ' via Google' : ''}.
+            </p>
+          </div>
+          
+          <div className="auth-alert auth-alert--success" style={{ marginBottom: '24px' }}>
+            <span className="auth-alert__icon">💡</span>
+            <span>Would you like to bind this new password to your existing account?</span>
+          </div>
+
+          {error && (
+            <div className="auth-alert auth-alert--error" style={{ marginBottom: '16px' }}>
+              <span className="auth-alert__icon">⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <button
+              onClick={handleRequestBind}
+              disabled={loading}
+              className="auth-form__submit"
+            >
+              {loading ? <span className="auth-spinner" /> : 'Yes, Bind Account'}
+            </button>
+            <button
+              onClick={() => {
+                setBindPrompt(false);
+                setError('');
+              }}
+              disabled={loading}
+              className="auth-form__submit"
+              style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.1)' }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (otpSent) {
+    return (
+      <div className="auth-page">
+        <div className="auth-page__bg-orb auth-page__bg-orb--1" />
+        <div className="auth-page__bg-orb auth-page__bg-orb--2" />
+        <div className="auth-card">
+          <div className="auth-card__header">
+            <span className="auth-card__logo">✉️</span>
+            <h1 className="auth-card__title">Enter Code</h1>
+            <p className="auth-card__subtitle">
+              We've sent a 6-digit verification code to <strong>{email}</strong>
+            </p>
+          </div>
+          
+          {error && (
+            <div className="auth-alert auth-alert--error" style={{ marginBottom: '16px' }}>
+              <span className="auth-alert__icon">⚠️</span>
+              <span>{error}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleVerifyBind} className="auth-form">
+            <div className="auth-form__group">
+              <label className="auth-form__label">Verification Code</label>
+              <input
+                type="text"
+                className="auth-form__input"
+                placeholder="000000"
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+                maxLength={6}
+                required
+                style={{ fontSize: '24px', letterSpacing: '4px', textAlign: 'center' }}
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="auth-form__submit"
+              disabled={loading || otp.length < 6}
+            >
+              {loading ? <span className="auth-spinner" /> : 'Verify and Login'}
+            </button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   if (success) {
     return (
       <div className="auth-page">
@@ -103,17 +257,12 @@ export default function RegisterPage() {
         <div className="auth-card">
           <div className="auth-card__header">
             <span className="auth-card__logo auth-card__logo--success">✉️</span>
-            <h1 className="auth-card__title">Check Your Email</h1>
+            <h1 className="auth-card__title">Enter Code</h1>
             <p className="auth-card__subtitle">
-              We've sent a verification link to <strong>{email}</strong>.
-              Click the link in the email to activate your account.
+              We've sent a 6-digit verification code to <strong>{email}</strong>
             </p>
           </div>
-          <div className="auth-alert auth-alert--success" style={{ marginBottom: '16px' }}>
-            <span className="auth-alert__icon">💡</span>
-            <span>Check your spam folder if you don't see the email within a few minutes.</span>
-          </div>
-
+          
           {resendMessage && (
             <div className="auth-alert auth-alert--success" style={{ marginBottom: '16px' }}>
               <span className="auth-alert__icon">✅</span>
@@ -126,6 +275,30 @@ export default function RegisterPage() {
               <span>{error}</span>
             </div>
           )}
+
+          <form onSubmit={handleVerifyEmail} className="auth-form">
+            <div className="auth-form__group">
+              <label className="auth-form__label">Verification Code</label>
+              <input
+                type="text"
+                className="auth-form__input"
+                placeholder="000000"
+                value={verifyOtp}
+                onChange={(e) => setVerifyOtp(e.target.value)}
+                maxLength={6}
+                required
+                style={{ fontSize: '24px', letterSpacing: '4px', textAlign: 'center' }}
+              />
+            </div>
+            
+            <button
+              type="submit"
+              className="auth-form__submit"
+              disabled={loading || verifyOtp.length < 6}
+            >
+              {loading ? <span className="auth-spinner" /> : 'Verify and Login'}
+            </button>
+          </form>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '24px' }}>
             <button
@@ -141,21 +314,11 @@ export default function RegisterPage() {
               {resendLoading ? (
                 <span className="auth-spinner" />
               ) : countdown > 0 ? (
-                `Resend Email in ${countdown}s`
+                `Resend Code in ${countdown}s`
               ) : (
-                'Resend Email'
+                'Resend Code'
               )}
             </button>
-
-            <Link to="/login" className="auth-form__submit" style={{ 
-              textDecoration: 'none', 
-              textAlign: 'center', 
-              display: 'block', 
-              background: 'transparent',
-              border: '1px solid rgba(255,255,255,0.1)' 
-            }}>
-              Go to Login
-            </Link>
           </div>
         </div>
       </div>

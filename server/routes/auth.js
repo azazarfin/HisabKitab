@@ -14,7 +14,7 @@ const PaymentMethod = require('../models/PaymentMethod');
 const RecurringExpense = require('../models/RecurringExpense');
 const authMiddleware = require('../middleware/authMiddleware');
 const { authLimiter, refreshLimiter } = require('../middleware/rateLimiter');
-const { sendVerificationEmail, sendPasswordResetEmail } = require('../utils/email');
+const { sendVerificationEmail, sendPasswordResetEmail, sendBindOtpEmail } = require('../utils/email');
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
@@ -99,13 +99,17 @@ router.post('/register', authLimiter, async (req, res) => {
     const normalizedEmail = email.toLowerCase().trim();
     const existingUser = await User.findOne({ email: normalizedEmail });
     if (existingUser) {
-      return res.status(409).json({ message: 'An account with this email already exists.' });
+      return res.status(409).json({ 
+        message: 'An account with this email already exists.',
+        requiresBinding: true,
+        provider: existingUser.provider
+      });
     }
 
     // Generate verification token (store SHA-256 hash in DB, send raw token to user)
-    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const rawVerificationToken = Math.floor(100000 + Math.random() * 900000).toString();
     const hashedVerificationToken = hashToken(rawVerificationToken);
-    const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+    const verificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
     // Create user
     const user = new User({
@@ -120,13 +124,10 @@ router.post('/register', authLimiter, async (req, res) => {
 
     await user.save();
 
-    // Send verification email with raw token
-    try {
-      await sendVerificationEmail(user.email, user.name, rawVerificationToken);
-    } catch (emailErr) {
+    // Send verification email in the background
+    sendVerificationEmail(user.email, user.name, rawVerificationToken).catch(emailErr => {
       console.error('Failed to send verification email:', emailErr.message);
-      // Don't fail registration if email fails — user can request resend
-    }
+    });
 
     res.status(201).json({
       message: 'Account created! Please check your email to verify your account.',
@@ -134,6 +135,107 @@ router.post('/register', authLimiter, async (req, res) => {
   } catch (error) {
     console.error('Register error:', error);
     res.status(500).json({ message: 'Server error during registration.' });
+  }
+});
+
+// ─── POST /api/auth/request-bind ────────────────────────────
+router.post('/request-bind', authLimiter, async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ message: 'Email is required.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      // Return generic success to avoid email enumeration
+      return res.json({ message: 'If an account exists, a verification code has been sent.' });
+    }
+
+    // Generate 6 digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = hashToken(otp);
+
+    user.bindOtp = hashedOtp;
+    user.bindOtpExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
+    await user.save();
+
+    // Send OTP email in the background
+    sendBindOtpEmail(user.email, user.name, otp).catch(emailErr => {
+      console.error('Failed to send OTP email:', emailErr.message);
+    });
+
+    res.json({ message: 'A 6-digit verification code has been sent to your email.' });
+  } catch (error) {
+    console.error('Request bind error:', error);
+    res.status(500).json({ message: 'Server error during request.' });
+  }
+});
+
+// ─── POST /api/auth/verify-bind ─────────────────────────────
+router.post('/verify-bind', authLimiter, async (req, res) => {
+  try {
+    const { email, otp, password } = req.body;
+
+    if (!email || !otp || !password) {
+      return res.status(400).json({ message: 'Email, code, and new password are required.' });
+    }
+    if (typeof password !== 'string' || password.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters.' });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const hashedOtp = hashToken(otp);
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+      bindOtp: hashedOtp,
+      bindOtpExpiry: { $gt: new Date() },
+    }).select('+bindOtp +bindOtpExpiry +password');
+
+    if (!user) {
+      return res.status(400).json({ message: 'Invalid or expired verification code.' });
+    }
+
+    // Update password, mark as verified, clear OTP
+    user.password = password;
+    user.isEmailVerified = true;
+    user.bindOtp = undefined;
+    user.bindOtpExpiry = undefined;
+    user.tokenVersion = (user.tokenVersion || 0) + 1;
+    
+    // If it was google-only, now it's local as well (we can just leave provider as google or set to local. Actually let's just ensure it has local capability)
+    // If we want to mark it 'local' to ensure they can login with password, we can do that, but since it has a password now, login will work regardless if we just check for password.
+    // Wait, in login: if (user.provider === 'google' && !user.password) it blocks. Now they have a password, so it won't block.
+    if (user.provider === 'google') {
+      user.provider = 'local';
+    }
+
+    await user.save();
+
+    // Generate tokens
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      message: 'Account bound successfully. You are now logged in.',
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: !!user.googleId,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
+  } catch (error) {
+    console.error('Verify bind error:', error);
+    res.status(500).json({ message: 'Server error during binding.' });
   }
 });
 
@@ -276,24 +378,27 @@ router.post('/google', authLimiter, async (req, res) => {
   }
 });
 
-// ─── GET /api/auth/verify-email/:token ──────────────────────
-router.get('/verify-email/:token', async (req, res) => {
+// ─── POST /api/auth/verify-email ────────────────────────────
+router.post('/verify-email', authLimiter, async (req, res) => {
   try {
-    const rawToken = req.params.token;
-    if (!rawToken || typeof rawToken !== 'string') {
-      return res.status(400).json({ message: 'Invalid verification token.' });
+    const { email, otp } = req.body;
+
+    if (!email || !otp || typeof otp !== 'string') {
+      return res.status(400).json({ message: 'Email and verification code are required.' });
     }
 
-    const hashedToken = hashToken(rawToken);
+    const normalizedEmail = email.toLowerCase().trim();
+    const hashedToken = hashToken(otp);
 
     const user = await User.findOne({
+      email: normalizedEmail,
       verificationToken: hashedToken,
       verificationTokenExpiry: { $gt: new Date() },
     }).select('+verificationToken +verificationTokenExpiry');
 
     if (!user) {
       return res.status(400).json({
-        message: 'Invalid or expired verification link.',
+        message: 'Invalid or expired verification code.',
       });
     }
 
@@ -302,7 +407,24 @@ router.get('/verify-email/:token', async (req, res) => {
     user.verificationTokenExpiry = undefined;
     await user.save();
 
-    res.json({ message: 'Email verified successfully! You can now log in.' });
+    // Generate tokens to log the user in immediately
+    const accessToken = generateAccessToken(user);
+    const refreshToken = generateRefreshToken(user);
+    setRefreshCookie(res, refreshToken);
+
+    res.json({
+      message: 'Email verified successfully! You are now logged in.',
+      accessToken,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar,
+        provider: user.provider,
+        googleId: !!user.googleId,
+        hasCompletedTour: user.hasCompletedTour || false,
+      },
+    });
   } catch (error) {
     console.error('Verify email error:', error);
     res.status(500).json({ message: 'Server error during email verification.' });
@@ -331,16 +453,15 @@ router.post('/resend-verification', authLimiter, async (req, res) => {
     }
 
     // Generate new token (hash before saving)
-    const rawVerificationToken = crypto.randomBytes(32).toString('hex');
+    const rawVerificationToken = Math.floor(100000 + Math.random() * 900000).toString();
     user.verificationToken = hashToken(rawVerificationToken);
-    user.verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    user.verificationTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
     await user.save();
 
-    try {
-      await sendVerificationEmail(user.email, user.name, rawVerificationToken);
-    } catch (emailErr) {
+    // Send verification email in the background
+    sendVerificationEmail(user.email, user.name, rawVerificationToken).catch(emailErr => {
       console.error('Failed to resend verification email:', emailErr.message);
-    }
+    });
 
     res.json(genericSuccess);
   } catch (error) {
@@ -368,16 +489,15 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
     }
 
     // Generate reset token (store SHA-256 hash in DB, send raw token)
-    const rawResetToken = crypto.randomBytes(32).toString('hex');
+    const rawResetToken = Math.floor(100000 + Math.random() * 900000).toString();
     user.resetPasswordToken = hashToken(rawResetToken);
-    user.resetPasswordTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+    user.resetPasswordTokenExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 mins
     await user.save();
 
-    try {
-      await sendPasswordResetEmail(user.email, user.name, rawResetToken);
-    } catch (emailErr) {
+    // Send password reset email in the background
+    sendPasswordResetEmail(user.email, user.name, rawResetToken).catch(emailErr => {
       console.error('Failed to send password reset email:', emailErr.message);
-    }
+    });
 
     res.json({ message: successMsg });
   } catch (error) {
@@ -386,30 +506,31 @@ router.post('/forgot-password', authLimiter, async (req, res) => {
   }
 });
 
-// ─── POST /api/auth/reset-password/:token ───────────────────
-router.post('/reset-password/:token', authLimiter, async (req, res) => {
+// ─── POST /api/auth/reset-password ──────────────────────────
+router.post('/reset-password', authLimiter, async (req, res) => {
   try {
-    const { password } = req.body;
-    const rawToken = req.params.token;
+    const { email, otp, password } = req.body;
 
-    if (!rawToken || typeof rawToken !== 'string') {
-      return res.status(400).json({ message: 'Invalid reset token.' });
+    if (!email || !otp || typeof otp !== 'string') {
+      return res.status(400).json({ message: 'Email and reset code are required.' });
     }
 
     if (!password || typeof password !== 'string' || password.length < 6) {
       return res.status(400).json({ message: 'Password must be at least 6 characters.' });
     }
 
-    const hashedToken = hashToken(rawToken);
+    const normalizedEmail = email.toLowerCase().trim();
+    const hashedToken = hashToken(otp);
 
     const user = await User.findOne({
+      email: normalizedEmail,
       resetPasswordToken: hashedToken,
       resetPasswordTokenExpiry: { $gt: new Date() },
     }).select('+resetPasswordToken +resetPasswordTokenExpiry');
 
     if (!user) {
       return res.status(400).json({
-        message: 'Invalid or expired password reset link.',
+        message: 'Invalid or expired password reset code.',
       });
     }
 

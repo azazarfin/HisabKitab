@@ -3,199 +3,217 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 const TOUR_STEPS = [
   {
     id: 'welcome',
-    title: 'Welcome to HisabKitab! 👋',
-    icon: '🌟',
+    title: 'Master Your Data Management in HisabKitab 📂',
+    badge: 'Onboarding Guide',
+    icon: '🗂️',
+    type: 'overview',
     description:
-      'HisabKitab is your personal smart spending tracker. Let’s take a quick 1-minute tour to help you master all the options and track your money effortlessly!',
-    target: null, // Centered modal
-    position: 'center',
-    tip: '💡 You can skip or replay this tour anytime from Settings.',
+      'HisabKitab is powered by 4 interconnected Data Management tools designed to keep your spending organized and automated.',
+    pillars: [
+      {
+        icon: '📖',
+        title: '1. Chapter Manager',
+        desc: 'Separate tracking books for months, semesters, or vacation trips.',
+      },
+      {
+        icon: '🏷️',
+        title: '2. Category Manager',
+        desc: 'Custom emoji icons & color badges that dynamically power charts.',
+      },
+      {
+        icon: '💳',
+        title: '3. Payment Methods',
+        desc: 'Track balances across Cash, bKash, Nagad, Bank, and Cards.',
+      },
+      {
+        icon: '⚡',
+        title: '4. Recurring Expenses',
+        desc: 'Fixed bills that auto-suggest amounts in 1 tap when spending.',
+      },
+    ],
+    highlightNote:
+      '💡 Let’s take 1 minute to explore each of these 4 managers with live dummy data!',
+    primaryButton: 'Open Chapter Manager →',
   },
   {
-    id: 'chapter',
-    title: 'Chapters (Tracking Books) 📖',
+    id: 'chapter_manager',
+    title: '1. Chapter Manager & Smart Import 📖',
+    badge: 'Live Manager Demo',
     icon: '📖',
+    type: 'chapter',
     description:
-      'Organize your finances into Chapters — like monthly tracking (e.g., "August 2026"), semesters, or trip budgets. Every balance and expense belongs to your active chapter.',
-    target: '.chapter-selector',
-    fallbackTarget: '.header__nav',
-    position: 'bottom',
-    tip: '💡 Create multiple chapters and switch between them anytime.',
+      'The Chapter Manager is open above! Chapters are separate notebooks for your money (e.g. "August 2026", "July 2026").',
+    features: [
+      {
+        title: '🗓️ Time Periods & Projects',
+        desc: 'Create monthly books or trip budgets. Each chapter maintains its own isolated balance and expenses.',
+      },
+      {
+        title: '📥 The Chapter Import Superpower',
+        desc: 'Notice the 📥 Import button on the chapter cards! Tap it to copy recurring bills & template records from past chapters in 1 click.',
+      },
+      {
+        title: '📅 Date Range Filters',
+        desc: 'Set custom start and end dates to match your salary or billing cycle.',
+      },
+    ],
+    highlightNote:
+      '📍 Live Demo: See the sample chapters "August 2026" and "July 2026" above with their date ranges and import action.',
+    primaryButton: 'Next: Category Manager →',
   },
   {
-    id: 'summary',
-    title: 'Financial Overview & Budget 💰',
-    icon: '📊',
+    id: 'category_manager',
+    title: '2. Custom Category Manager 🏷️',
+    badge: 'Live Manager Demo',
+    icon: '🏷️',
+    type: 'category',
     description:
-      'Monitor your Total Balance, Total Spent, and Remaining money in real-time. The live progress bar warns you before you exceed your budget limit.',
-    target: '.summary-grid',
-    fallbackTarget: '.app-container',
-    position: 'bottom',
-    tip: '💡 Instant calculations for every entry you make.',
+      'The Category Manager is open above! Classify your expenses with personalized emojis and vibrant color badges.',
+    features: [
+      {
+        title: '🎨 Emojis & Color Badges',
+        desc: 'Pick any emoji (🍚 Food, 🏠 Housing, 🚌 Commute, ⚡ Utilities) and custom badge colors for instant recognition.',
+      },
+      {
+        title: '⚡ 12+ Pre-built Suggestions',
+        desc: 'Quickly tap the predefined chips (+ Groceries, + Utilities, + Education) to add categories with one tap.',
+      },
+      {
+        title: '📊 Dynamic Charts',
+        desc: 'Your Category Donut chart and Top Spending list automatically adapt to your custom categories and colors.',
+      },
+    ],
+    highlightNote:
+      '📍 Live Demo: See the color picker palette and category list above with custom emoji badges.',
+    primaryButton: 'Next: Payment Methods →',
   },
   {
-    id: 'actions',
-    title: 'Quick Income & Expense Entry ➕',
+    id: 'payment_methods',
+    title: '3. Payment Methods (Multi-Wallet) 💳',
+    badge: 'Live Manager Demo',
+    icon: '💳',
+    type: 'payment',
+    description:
+      'The Payment Method Manager is open above! Know where your money is coming from and where it is going across all your physical and digital accounts.',
+    features: [
+      {
+        title: '📱 Digital Wallets & Mobile Banking',
+        desc: 'Create dedicated methods for bKash 📱, Nagad 📱, Rocket, Upay, etc.',
+      },
+      {
+        title: '🏦 Bank & Card Accounts',
+        desc: 'Separate credit card purchases from cash or bank transfers.',
+      },
+      {
+        title: '📋 Transaction History Filtering',
+        desc: 'Filter past transactions by payment method in the History tab to audit your account balances.',
+      },
+    ],
+    highlightNote:
+      '📍 Live Demo: See the payment method options (Cash 💵, bKash 📱, Bank 🏦, Card 💳) in the list above.',
+    primaryButton: 'Next: Recurring Expenses →',
+  },
+  {
+    id: 'recurring_expenses',
+    title: '4. Recurring Expenses & 1-Tap Quick-Fill 🔄',
+    badge: 'Live Manager Demo',
     icon: '⚡',
+    type: 'recurring',
     description:
-      'Use these buttons to deposit Balance (salary, income) or log daily Expenses. Each entry can have a category, payment method, date, and note.',
-    target: '.add-transaction-banner',
-    fallbackTarget: '.bottom-nav__fab-wrapper',
-    position: 'top',
-    tip: '💡 On mobile, tap the vibrant center (+) button anytime!',
+      'The Recurring Expense Manager is open above! Automate regular bills so you never have to re-type identical amounts.',
+    features: [
+      {
+        title: '🔄 Set Up Monthly Bill Templates',
+        desc: 'Save fixed expenses like WiFi (৳1,500), Apartment Rent (৳15,000), Gym, or Subscriptions.',
+      },
+      {
+        title: '⚡ 1-Tap Quick-Fill Chips',
+        desc: 'When logging an expense in the form, selecting that category reveals instant suggestion chips to auto-fill the whole form in 1 tap!',
+      },
+      {
+        title: '💡 Time Saver',
+        desc: 'Log frequent daily expenses in under 3 seconds with zero manual number typing.',
+      },
+    ],
+    highlightNote:
+      '📍 Live Demo: See the recurring templates (WiFi ৳1,500, Rent ৳15,000, Gym ৳2,000) loaded in the manager above.',
+    primaryButton: 'Next: Settings & Themes →',
   },
   {
-    id: 'charts',
-    title: 'Visual Trends & Categories 📈',
-    icon: '🎨',
-    description:
-      'Detailed category donut breakdowns and daily spending bar charts visualize exactly where your money goes so you can save smarter.',
-    target: '.charts-grid',
-    fallbackTarget: '.top-categories',
-    position: 'top',
-    tip: '💡 Charts automatically update with each new transaction.',
-  },
-  {
-    id: 'navigation',
-    title: 'Navigation & History 🧭',
-    icon: '📋',
-    description:
-      'Switch between your Dashboard overview and full Transaction History to filter, search, edit, or delete any past entry with ease.',
-    target: '#bottom-nav',
-    fallbackTarget: '.header__brand',
-    position: 'top',
-    tip: '💡 Detailed transaction history gives you complete financial records.',
-  },
-  {
-    id: 'settings',
-    title: 'Settings & Custom Managers ⚙️',
+    id: 'settings_hub',
+    title: '5. Settings Hub & Personalization ⚙️',
+    badge: 'Live Settings Demo',
     icon: '🛠️',
+    type: 'settings',
     description:
-      'Tailor HisabKitab to your lifestyle: switch themes (Dark, Blue, OLED, Light), create custom Categories with emojis, manage Payment Methods (Cash, bKash, Card), and set Recurring Bills.',
-    target: '.header__nav .btn--secondary',
-    fallbackTarget: '#bottom-nav',
-    position: 'bottom',
-    tip: '💡 Recurring expenses auto-suggest amounts when adding frequent bills!',
+      'The Settings Panel is open above! Your centralized control center for all 4 Data Managers and appearance customization.',
+    features: [
+      {
+        title: '🎨 4 Bespoke Themes',
+        desc: 'Switch between Dark Charcoal 🌙, Deep Blue Navy 🌊, Pure OLED Black 🖤, and Crisp Light ☀️.',
+      },
+      {
+        title: '👤 Account & Profile Security',
+        desc: 'Update your name, change password, link Google Sign-In, or manage sessions.',
+      },
+      {
+        title: '🎓 Replay Start Guide',
+        desc: 'Need a refresher later? Replay this Data Management Tour anytime under "Help & Start Guide".',
+      },
+    ],
+    highlightNote:
+      '📍 Live Demo: See the Appearance theme switcher, Data Management shortcuts, and Help section above.',
+    primaryButton: 'Finish & Build Setup →',
   },
   {
     id: 'ready',
-    title: "You're All Set! 🎉",
+    title: 'Ready to Build Your Setup! 🎉',
+    badge: 'All Set',
     icon: '🚀',
+    type: 'ready',
     description:
-      'You are ready to master your money. Start by creating your first chapter or logging your opening balance.',
-    target: null, // Centered modal
-    position: 'center',
-    tip: '💡 Need help later? Visit Settings → "Help & Start Guide" anytime!',
+      'You are now equipped with full knowledge of HisabKitab’s Data Management tools!',
+    stepsToStart: [
+      '1️⃣ Create your first chapter (e.g. Current Month).',
+      '2️⃣ Add your starting Balance.',
+      '3️⃣ Visit Settings to customize your Categories and Payment Methods.',
+      '4️⃣ Start recording your expenses with ease!',
+    ],
+    highlightNote:
+      '👉 Tap "Create First Chapter" below to launch the Chapter Manager and start tracking!',
+    primaryButton: '➕ Create My First Chapter 📖',
+    secondaryButton: 'Go to Dashboard 🏠',
   },
 ];
 
-export default function GuidedTour({ isActive, onComplete, onSkip }) {
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
-  const [targetRect, setTargetRect] = useState(null);
-  const [tooltipStyle, setTooltipStyle] = useState({});
+export default function GuidedTour({
+  isActive,
+  currentStepIndex = 0,
+  onStepChange,
+  onComplete,
+  onSkip,
+}) {
+  const [internalStep, setInternalStep] = useState(currentStepIndex);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const tooltipRef = useRef(null);
-
-  const step = TOUR_STEPS[currentStepIndex];
-  const isFirstStep = currentStepIndex === 0;
-  const isLastStep = currentStepIndex === TOUR_STEPS.length - 1;
-
-  // Calculate target element position and tooltip location
-  const updatePosition = useCallback(() => {
-    if (!isActive || !step) return;
-
-    if (!step.target) {
-      setTargetRect(null);
-      setTooltipStyle({});
-      return;
-    }
-
-    let el = document.querySelector(step.target);
-    if (!el && step.fallbackTarget) {
-      el = document.querySelector(step.fallbackTarget);
-    }
-
-    if (!el) {
-      // Element not found, fallback to center
-      setTargetRect(null);
-      setTooltipStyle({});
-      return;
-    }
-
-    // Scroll target into view if needed
-    const rect = el.getBoundingClientRect();
-    const isOutOfView =
-      rect.top < 60 ||
-      rect.bottom > window.innerHeight - 60 ||
-      rect.left < 0 ||
-      rect.right > window.innerWidth;
-
-    if (isOutOfView) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
-    }
-
-    // Add padding around target for spotlight
-    const padding = 8;
-    const adjustedRect = {
-      top: Math.max(rect.top - padding, 4),
-      left: Math.max(rect.left - padding, 4),
-      width: Math.min(rect.width + padding * 2, window.innerWidth - 8),
-      height: rect.height + padding * 2,
-    };
-
-    setTargetRect(adjustedRect);
-
-    // Compute tooltip position
-    const tooltipWidth = Math.min(380, window.innerWidth - 32);
-    const spacing = 14;
-    let computedTop = 0;
-    let computedLeft = Math.max(
-      16,
-      Math.min(
-        adjustedRect.left + adjustedRect.width / 2 - tooltipWidth / 2,
-        window.innerWidth - tooltipWidth - 16
-      )
-    );
-
-    const spaceAbove = adjustedRect.top;
-    const spaceBelow = window.innerHeight - (adjustedRect.top + adjustedRect.height);
-
-    if (step.position === 'top' || (spaceAbove > 280 && spaceBelow < 280)) {
-      computedTop = Math.max(16, adjustedRect.top - spacing - 260);
-    } else {
-      computedTop = Math.min(
-        window.innerHeight - 280,
-        adjustedRect.top + adjustedRect.height + spacing
-      );
-    }
-
-    setTooltipStyle({
-      top: `${computedTop}px`,
-      left: `${computedLeft}px`,
-      width: `${tooltipWidth}px`,
-    });
-  }, [isActive, step]);
+  const cardRef = useRef(null);
 
   useEffect(() => {
-    if (!isActive) return;
+    setInternalStep(currentStepIndex);
+  }, [currentStepIndex]);
 
-    // Small delay to allow elements to settle/render
-    const timer = setTimeout(() => {
-      updatePosition();
-    }, 150);
+  const step = TOUR_STEPS[internalStep] || TOUR_STEPS[0];
+  const isFirstStep = internalStep === 0;
+  const isLastStep = internalStep === TOUR_STEPS.length - 1;
+  const isModalView = internalStep >= 1 && internalStep <= 5;
 
-    const handleResize = () => updatePosition();
-    const handleScroll = () => updatePosition();
-
-    window.addEventListener('resize', handleResize, { passive: true });
-    window.addEventListener('scroll', handleScroll, { passive: true });
-
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll);
-    };
-  }, [isActive, currentStepIndex, updatePosition]);
+  const goToStep = (newIndex) => {
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setInternalStep(newIndex);
+      if (onStepChange) onStepChange(newIndex);
+      setIsTransitioning(false);
+    }, 120);
+  };
 
   // Keyboard navigation
   useEffect(() => {
@@ -205,118 +223,158 @@ export default function GuidedTour({ isActive, onComplete, onSkip }) {
       if (e.key === 'Escape') {
         handleSkip();
       } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
-        handleNext();
+        if (!isLastStep) handleNext();
       } else if (e.key === 'ArrowLeft') {
-        handlePrev();
+        if (!isFirstStep) handlePrev();
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isActive, currentStepIndex]);
+  }, [isActive, internalStep, isFirstStep, isLastStep]);
 
   const handleNext = () => {
     if (isLastStep) {
-      handleComplete();
+      handleComplete(true);
       return;
     }
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentStepIndex((prev) => prev + 1);
-      setIsTransitioning(false);
-    }, 150);
+    goToStep(internalStep + 1);
   };
 
   const handlePrev = () => {
     if (isFirstStep) return;
-    setIsTransitioning(true);
-    setTimeout(() => {
-      setCurrentStepIndex((prev) => prev - 1);
-      setIsTransitioning(false);
-    }, 150);
+    goToStep(internalStep - 1);
   };
 
   const handleSkip = () => {
-    if (onSkip) {
-      onSkip();
-    } else if (onComplete) {
-      onComplete();
-    }
+    if (onSkip) onSkip();
+    else if (onComplete) onComplete({ openChapterManager: false });
   };
 
-  const handleComplete = () => {
+  const handleComplete = (openChapterManager = false) => {
     if (onComplete) {
-      onComplete();
+      onComplete({ openChapterManager });
     }
   };
 
-  if (!isActive) return null;
+  // Manage body class for smart side-by-side positioning
+  useEffect(() => {
+    if (isActive && isModalView) {
+      document.body.classList.add('tour-active-modal');
+    } else {
+      document.body.classList.remove('tour-active-modal');
+    }
+    return () => {
+      document.body.classList.remove('tour-active-modal');
+    };
+  }, [isActive, isModalView]);
+
+  if (!isActive || !step) return null;
 
   return (
-    <div className="tour-portal" role="dialog" aria-modal="true" aria-label="Onboarding Tour">
-      {/* Dimmed Overlay */}
-      <div className="tour-backdrop" onClick={handleSkip} />
+    <div className="tour-portal" role="dialog" aria-modal="true" aria-label="Data Management Guide">
+      {/* Dimmed Backdrop (only on centered steps) */}
+      {!isModalView && <div className="tour-backdrop" onClick={handleSkip} />}
 
-      {/* Target Spotlight Highlight Box */}
-      {targetRect && (
-        <div
-          className="tour-spotlight"
-          style={{
-            top: `${targetRect.top}px`,
-            left: `${targetRect.left}px`,
-            width: `${targetRect.width}px`,
-            height: `${targetRect.height}px`,
-          }}
-        />
-      )}
-
-      {/* Tour Card Tooltip */}
+      {/* Tour Card */}
       <div
-        ref={tooltipRef}
-        className={`tour-card ${targetRect ? 'tour-card--positioned' : 'tour-card--center'} ${
-          isTransitioning ? 'tour-card--transitioning' : ''
-        }`}
-        style={targetRect ? tooltipStyle : {}}
+        ref={cardRef}
+        className={`tour-card ${
+          isModalView ? 'tour-card--docked-side' : 'tour-card--center'
+        } ${isTransitioning ? 'tour-card--transitioning' : ''}`}
       >
-        {/* Header */}
+        {/* Card Header */}
         <div className="tour-card__header">
           <div className="tour-card__tag">
             <span className="tour-card__icon">{step.icon}</span>
             <span className="tour-card__step-num">
-              Step {currentStepIndex + 1} of {TOUR_STEPS.length}
+              {step.badge || `Step ${internalStep + 1} of ${TOUR_STEPS.length}`}
             </span>
           </div>
-          <button
-            type="button"
-            className="tour-card__close"
-            onClick={handleSkip}
-            title="Skip tour"
-            aria-label="Close tour"
-          >
-            ✕
-          </button>
+
+          <div className="tour-card__header-right">
+            <span className="tour-step-counter">
+              {internalStep + 1} / {TOUR_STEPS.length}
+            </span>
+            <button
+              type="button"
+              className="tour-card__close"
+              onClick={handleSkip}
+              title="Close tour"
+              aria-label="Close tour"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        {/* Content */}
+        {/* Card Body */}
         <div className="tour-card__body">
           <h3 className="tour-card__title">{step.title}</h3>
           <p className="tour-card__desc">{step.description}</p>
-          {step.tip && <div className="tour-card__tip">{step.tip}</div>}
+
+          {/* Overview Pillars (Step 1) */}
+          {step.pillars && (
+            <div className="tour-pillars-grid">
+              {step.pillars.map((p, idx) => (
+                <div key={idx} className="tour-pillar-card">
+                  <div className="tour-pillar-icon">{p.icon}</div>
+                  <div className="tour-pillar-content">
+                    <strong className="tour-pillar-title">{p.title}</strong>
+                    <span className="tour-pillar-desc">{p.desc}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Detailed Features List (Steps 2-6) */}
+          {step.features && (
+            <div className="tour-features-list">
+              {step.features.map((f, idx) => (
+                <div key={idx} className="tour-feature-item">
+                  <span className="tour-feature-bullet">•</span>
+                  <div className="tour-feature-text">
+                    <strong>{f.title}</strong>: {f.desc}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Steps to Start (Step 7) */}
+          {step.stepsToStart && (
+            <div className="tour-steps-checklist">
+              {step.stepsToStart.map((item, idx) => (
+                <div key={idx} className="tour-checklist-item">
+                  {item}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Highlight Callout Box */}
+          {step.highlightNote && (
+            <div className="tour-card__highlight-note">
+              {step.highlightNote}
+            </div>
+          )}
         </div>
 
-        {/* Footer & Actions */}
+        {/* Card Footer */}
         <div className="tour-card__footer">
-          {/* Step Dots Indicator */}
+          {/* Step Progress Dots */}
           <div className="tour-dots">
             {TOUR_STEPS.map((s, idx) => (
               <button
                 key={s.id}
                 type="button"
-                className={`tour-dot ${idx === currentStepIndex ? 'tour-dot--active' : ''} ${
-                  idx < currentStepIndex ? 'tour-dot--visited' : ''
+                className={`tour-dot ${idx === internalStep ? 'tour-dot--active' : ''} ${
+                  idx < internalStep ? 'tour-dot--visited' : ''
                 }`}
-                onClick={() => setCurrentStepIndex(idx)}
+                onClick={() => goToStep(idx)}
                 aria-label={`Go to step ${idx + 1}`}
+                title={`Step ${idx + 1}: ${s.title}`}
               />
             ))}
           </div>
@@ -347,17 +405,26 @@ export default function GuidedTour({ isActive, onComplete, onSkip }) {
                   className="btn btn--primary btn--sm tour-btn-next"
                   onClick={handleNext}
                 >
-                  {isFirstStep ? "Let's Go! →" : 'Next →'}
+                  {step.primaryButton || 'Next →'}
                 </button>
               </>
             ) : (
-              <button
-                type="button"
-                className="btn btn--primary btn--sm tour-btn-finish"
-                onClick={handleComplete}
-              >
-                Finish Tour 🚀
-              </button>
+              <div className="tour-actions--final">
+                <button
+                  type="button"
+                  className="btn btn--secondary btn--sm"
+                  onClick={() => handleComplete(false)}
+                >
+                  {step.secondaryButton || 'Dashboard 🏠'}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn--primary btn--sm tour-btn-finish"
+                  onClick={() => handleComplete(true)}
+                >
+                  {step.primaryButton || '➕ Create Chapter'}
+                </button>
+              </div>
             )}
           </div>
         </div>

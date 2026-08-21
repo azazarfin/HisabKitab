@@ -63,19 +63,23 @@ export const forgotPassword = async (email) => {
   return data;
 };
 
-export const resetPassword = async (token, password) => {
-  const res = await fetch(`${API_BASE}/auth/reset-password/${token}`, {
+export const resetPassword = async (email, otp, password) => {
+  const res = await fetch(`${API_BASE}/auth/reset-password`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
+    body: JSON.stringify({ email, otp, password }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Failed');
   return data;
 };
 
-export const verifyEmail = async (token) => {
-  const res = await fetch(`${API_BASE}/auth/verify-email/${token}`);
+export const verifyEmail = async (email, otp) => {
+  const res = await fetch(`${API_BASE}/auth/verify-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp }),
+  });
   const data = await res.json();
   if (!res.ok) throw new Error(data.message || 'Verification failed');
   return data;
@@ -422,4 +426,26 @@ export const deleteAccount = async (confirmText) => {
     throw new Error(err.message || 'Failed to delete account');
   }
   return res.json();
+};
+
+export const requestBind = async (email) => {
+  const res = await fetch(`${API_BASE}/auth/request-bind`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to request bind');
+  return data;
+};
+
+export const verifyBind = async (email, otp, password) => {
+  const res = await fetch(`${API_BASE}/auth/verify-bind`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, otp, password }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || 'Failed to verify bind');
+  return data;
 };

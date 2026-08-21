@@ -69,7 +69,7 @@ const Header = ({
 
       <div className="header__nav">
         {/* Chapter Selector (Desktop) */}
-        <div className="chapter-selector">
+        <div className="chapter-selector" id="header-chapter-selector">
           <select
             className="chapter-selector__select"
             value={activeChapter?._id || ''}
@@ -89,7 +89,7 @@ const Header = ({
         </div>
 
         {/* Settings Menu (Desktop) */}
-        <button type="button" className="btn btn--secondary" onClick={onOpenSettings}>
+        <button type="button" id="header-settings-btn" className="btn btn--secondary" onClick={onOpenSettings}>
           🛠️ Settings
         </button>
 
