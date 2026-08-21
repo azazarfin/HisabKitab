@@ -106,6 +106,67 @@ function App() {
   // SW update banner state
   const [swUpdateAvailable, setSwUpdateAvailable] = useState(null);
 
+  // PWA Install state
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showPwaInstall, setShowPwaInstall] = useState(false);
+
+  // Capture beforeinstallprompt
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      window.deferredPwaPrompt = e;
+    };
+    
+    if (window.deferredPwaPrompt) {
+      setDeferredPrompt(window.deferredPwaPrompt);
+    }
+    
+    const handlePwaPromptSaved = () => {
+      if (window.deferredPwaPrompt) {
+        setDeferredPrompt(window.deferredPwaPrompt);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('pwa-prompt-saved', handlePwaPromptSaved);
+    
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('pwa-prompt-saved', handlePwaPromptSaved);
+    };
+  }, []);
+
+  // Show install prompt when authenticated if available and not dismissed
+  useEffect(() => {
+    if (isAuthenticated && deferredPrompt) {
+      const dismissed = localStorage.getItem('hisabkitab_pwa_dismissed');
+      if (!dismissed) {
+        setShowPwaInstall(true);
+      }
+    } else {
+      setShowPwaInstall(false);
+    }
+  }, [isAuthenticated, deferredPrompt]);
+
+  const handleInstallPwa = async () => {
+    if (!deferredPrompt) return;
+    setShowPwaInstall(false);
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      console.log('User accepted the A2HS prompt');
+    } else {
+      console.log('User dismissed the A2HS prompt');
+    }
+    setDeferredPrompt(null);
+  };
+
+  const handleDismissPwa = () => {
+    setShowPwaInstall(false);
+    localStorage.setItem('hisabkitab_pwa_dismissed', 'true');
+  };
+
   // Listen for SW update events
   useEffect(() => {
     const handleSwUpdate = (e) => {
@@ -509,6 +570,21 @@ function App() {
           <button type="button" className="btn btn--primary btn--sm" onClick={handleSwUpdate}>
             Update Now
           </button>
+        </div>
+      )}
+
+      {/* PWA Install Banner */}
+      {showPwaInstall && (
+        <div className="sw-update-banner" style={{ background: 'linear-gradient(135deg, var(--color-primary-dark), var(--color-primary))', zIndex: 2999 }}>
+          <span>📱 Install HisabKitab for a better experience!</span>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button type="button" className="btn btn--sm" style={{ background: 'white', color: 'var(--color-primary-dark)' }} onClick={handleInstallPwa}>
+              Install
+            </button>
+            <button type="button" className="btn btn--sm btn--ghost" style={{ color: 'white' }} onClick={handleDismissPwa}>
+              Not Now
+            </button>
+          </div>
         </div>
       )}
 
